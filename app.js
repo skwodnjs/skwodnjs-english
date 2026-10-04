@@ -1,56 +1,60 @@
-const STORAGE_KEY = "skwodnjs-english:v1";
-
+const PREFS_KEY = "skwodnjs-english:ui:v2";
 const $ = (selector) => document.querySelector(selector);
 const elements = {
   sidebar: $("#sidebar"), sidebarBackdrop: $("#sidebarBackdrop"), openSidebarButton: $("#openSidebarButton"), closeSidebarButton: $("#closeSidebarButton"),
-  newBookButton: $("#newBookButton"), bookList: $("#bookList"), bookTitle: $("#bookTitle"), bookMeta: $("#bookMeta"), renameBookButton: $("#renameBookButton"),
-  searchInput: $("#searchInput"), addWordsButton: $("#addWordsButton"), emptyAddButton: $("#emptyAddButton"), wordTableBody: $("#wordTableBody"), emptyState: $("#emptyState"),
-  bookDialog: $("#bookDialog"), bookForm: $("#bookForm"), bookDialogTitle: $("#bookDialogTitle"), bookDialogDescription: $("#bookDialogDescription"), bookNameInput: $("#bookNameInput"), bookSubmitButton: $("#bookSubmitButton"),
-  addWordsDialog: $("#addWordsDialog"), addWordsBookName: $("#addWordsBookName"), manualTab: $("#manualTab"), csvTab: $("#csvTab"), manualWordForm: $("#manualWordForm"), csvPanel: $("#csvPanel"),
-  wordInput: $("#wordInput"), meaningInput: $("#meaningInput"), exampleInput: $("#exampleInput"), csvFileInput: $("#csvFileInput"), fileDrop: $("#fileDrop"), csvResult: $("#csvResult"), importCsvButton: $("#importCsvButton"),
-  editWordDialog: $("#editWordDialog"), editWordForm: $("#editWordForm"), editWordInput: $("#editWordInput"), editMeaningInput: $("#editMeaningInput"), editExampleInput: $("#editExampleInput"), deleteWordButton: $("#deleteWordButton"),
-  toast: $("#toast")
+  newVocabularyButton: $("#newVocabularyButton"), newSentenceButton: $("#newSentenceButton"), vocabularyToggle: $("#vocabularyToggle"), sentenceToggle: $("#sentenceToggle"), vocabularyList: $("#vocabularyList"), sentenceList: $("#sentenceList"), storageNote: $("#storageNote"),
+  collectionTitle: $("#collectionTitle"), collectionMeta: $("#collectionMeta"), searchInput: $("#searchInput"), addEntriesButton: $("#addEntriesButton"), primaryHeader: $("#primaryHeader"), entryTableBody: $("#entryTableBody"), emptyState: $("#emptyState"), noCollectionState: $("#noCollectionState"), emptyTitle: $("#emptyTitle"), emptyDescription: $("#emptyDescription"), emptyAddButton: $("#emptyAddButton"),
+  collectionDialog: $("#collectionDialog"), collectionForm: $("#collectionForm"), collectionDialogTitle: $("#collectionDialogTitle"), collectionDialogDescription: $("#collectionDialogDescription"), collectionNameInput: $("#collectionNameInput"), collectionSubmitButton: $("#collectionSubmitButton"),
+  addEntriesDialog: $("#addEntriesDialog"), addDialogTitle: $("#addDialogTitle"), addDialogDescription: $("#addDialogDescription"), manualTab: $("#manualTab"), csvTab: $("#csvTab"), manualEntryForm: $("#manualEntryForm"), csvPanel: $("#csvPanel"), primaryInputLabel: $("#primaryInputLabel"), primaryInput: $("#primaryInput"), meaningInput: $("#meaningInput"), exampleInput: $("#exampleInput"), csvFileInput: $("#csvFileInput"), fileDrop: $("#fileDrop"), csvFormatHint: $("#csvFormatHint"), csvHeaderHint: $("#csvHeaderHint"), csvResult: $("#csvResult"), importCsvButton: $("#importCsvButton"),
+  editEntryDialog: $("#editEntryDialog"), editEntryForm: $("#editEntryForm"), editDialogTitle: $("#editDialogTitle"), editPrimaryLabel: $("#editPrimaryLabel"), editPrimaryInput: $("#editPrimaryInput"), editMeaningInput: $("#editMeaningInput"), editExampleInput: $("#editExampleInput"), deleteEntryButton: $("#deleteEntryButton"), toast: $("#toast")
 };
 
-const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const sampleState = {
-  books: [{
-    id: createId(),
-    name: "기본 단어장",
-    words: [
-      { id: createId(), word: "accomplish", meaning: "성취하다, 완수하다", example: "She accomplished everything she planned for the day." },
-      { id: createId(), word: "remarkable", meaning: "주목할 만한, 놀라운", example: "The team made remarkable progress in a short time." },
-      { id: createId(), word: "precise", meaning: "정확한, 정밀한", example: "Please give me a precise description of the problem." }
-    ]
-  }],
-  selectedBookId: null
-};
-sampleState.selectedBookId = sampleState.books[0].id;
-
-let state = loadState();
-let bookDialogMode = "create";
-let editingWordId = null;
-let pendingCsvWords = [];
+let state = { collections: [], selectedCollectionId: null };
+let prefs = loadPrefs();
+let collectionDialogMode = "create";
+let collectionDialogKind = "vocabulary";
+let editingCollectionId = null;
+let editingEntryId = null;
+let pendingCsvItems = [];
 let toastTimer = null;
 
-function loadState() {
+function loadPrefs() {
+  try { return { selectedCollectionId: null, collapsed: { vocabulary: false, sentence: false }, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; }
+  catch { return { selectedCollectionId: null, collapsed: { vocabulary: false, sentence: false } }; }
+}
+function savePrefs() { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }
+function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char])); }
+function selectedCollection() { return state.collections.find((item) => item.id === state.selectedCollectionId) || null; }
+function kindLabel(kind) { return kind === "sentence" ? "문장" : "단어"; }
+function collectionKindLabel(kind) { return kind === "sentence" ? "문장" : "단어장"; }
+
+async function api(path, options = {}) {
+  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `요청에 실패했습니다. (${response.status})`);
+  return data;
+}
+
+async function loadBootstrap(preserveSelection = true) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!parsed || !Array.isArray(parsed.books)) return structuredClone(sampleState);
-    if (!parsed.books.length) return structuredClone(sampleState);
-    const selectedExists = parsed.books.some((book) => book.id === parsed.selectedBookId);
-    return { books: parsed.books, selectedBookId: selectedExists ? parsed.selectedBookId : parsed.books[0].id };
-  } catch {
-    return structuredClone(sampleState);
+    const data = await api("/api/bootstrap");
+    state.collections = Array.isArray(data.collections) ? data.collections : [];
+    const preferred = preserveSelection ? (state.selectedCollectionId || prefs.selectedCollectionId) : null;
+    state.selectedCollectionId = state.collections.some((item) => item.id === preferred) ? preferred : (state.collections[0]?.id || null);
+    prefs.selectedCollectionId = state.selectedCollectionId;
+    savePrefs();
+    elements.storageNote.textContent = "Cloudflare D1에 저장됩니다.";
+    render();
+  } catch (error) {
+    elements.storageNote.textContent = "D1 연결이 필요합니다.";
+    elements.collectionTitle.textContent = "데이터베이스 연결 필요";
+    elements.collectionMeta.textContent = error.message;
+    elements.addEntriesButton.disabled = true;
+    elements.searchInput.disabled = true;
+    elements.entryTableBody.closest(".table-scroll").hidden = true;
+    elements.emptyState.hidden = true;
+    elements.noCollectionState.hidden = false;
   }
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function getSelectedBook() {
-  return state.books.find((book) => book.id === state.selectedBookId) || state.books[0] || null;
 }
 
 function showToast(message) {
@@ -60,275 +64,235 @@ function showToast(message) {
   toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2200);
 }
 
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-}
-
 function render() {
-  const selectedBook = getSelectedBook();
-  if (!selectedBook) return;
-
-  elements.bookList.innerHTML = state.books.map((book) => `
-    <div class="book-item ${book.id === selectedBook.id ? "active" : ""}" data-book-id="${book.id}">
-      <button class="book-main" type="button" data-select-book="${book.id}">
-        <span class="book-name">${escapeHtml(book.name)}</span>
-        <span class="book-count">${book.words.length}</span>
-      </button>
-      <button class="icon-button book-menu" type="button" data-rename-book="${book.id}" aria-label="${escapeHtml(book.name)} 이름 수정" title="이름 수정">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg>
-      </button>
-    </div>
-  `).join("");
-
-  elements.bookTitle.textContent = selectedBook.name;
-  elements.bookMeta.textContent = `${selectedBook.words.length.toLocaleString("ko-KR")}개의 단어`;
-  elements.addWordsBookName.textContent = `“${selectedBook.name}”에 단어를 추가합니다.`;
-  renderWords();
-}
-
-function renderWords() {
-  const selectedBook = getSelectedBook();
-  if (!selectedBook) return;
-  const query = elements.searchInput.value.trim().toLocaleLowerCase();
-  const words = selectedBook.words.filter((item) => !query || [item.word, item.meaning, item.example].some((value) => String(value || "").toLocaleLowerCase().includes(query)));
-
-  elements.wordTableBody.innerHTML = words.map((item) => {
-    const originalIndex = selectedBook.words.findIndex((word) => word.id === item.id);
-    return `
-      <tr>
-        <td class="number-column">${originalIndex + 1}</td>
-        <td class="word-cell">${escapeHtml(item.word)}</td>
-        <td>${escapeHtml(item.meaning)}</td>
-        <td class="example-cell">${escapeHtml(item.example || "—")}</td>
-        <td class="row-actions-column">
-          <button class="icon-button row-action-button" type="button" data-edit-word="${item.id}" aria-label="${escapeHtml(item.word)} 수정" title="수정">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg>
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join("");
-
-  const noWordsAtAll = selectedBook.words.length === 0;
-  elements.emptyState.hidden = !noWordsAtAll;
-  elements.wordTableBody.closest(".table-scroll").hidden = noWordsAtAll;
-  if (!noWordsAtAll && words.length === 0) {
-    elements.wordTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#8a8a8a;padding:42px 16px;">검색 결과가 없습니다.</td></tr>`;
+  renderSidebarGroup("vocabulary", elements.vocabularyList, elements.vocabularyToggle);
+  renderSidebarGroup("sentence", elements.sentenceList, elements.sentenceToggle);
+  const collection = selectedCollection();
+  const hasCollection = Boolean(collection);
+  elements.noCollectionState.hidden = hasCollection;
+  elements.emptyState.hidden = true;
+  elements.entryTableBody.closest(".table-scroll").hidden = !hasCollection;
+  elements.addEntriesButton.disabled = !hasCollection;
+  elements.searchInput.disabled = !hasCollection;
+  if (!collection) {
+    elements.collectionTitle.textContent = "English Study";
+    elements.collectionMeta.textContent = "왼쪽에서 새 단어장이나 새 문장을 만들어 주세요.";
+    return;
   }
+  const singular = kindLabel(collection.kind);
+  elements.collectionTitle.textContent = collection.name;
+  elements.collectionMeta.textContent = `${collection.items.length.toLocaleString("ko-KR")}개의 ${singular}`;
+  elements.primaryHeader.textContent = singular;
+  elements.searchInput.placeholder = `${singular} 검색`;
+  renderEntries();
 }
 
-function openBookDialog(mode, bookId = null) {
-  bookDialogMode = mode;
-  const book = state.books.find((item) => item.id === bookId) || getSelectedBook();
-  if (mode === "rename" && book) state.selectedBookId = book.id;
-  elements.bookDialogTitle.textContent = mode === "create" ? "새 단어장" : "단어장 이름 수정";
-  elements.bookDialogDescription.textContent = mode === "create" ? "새 단어장의 이름을 입력하세요." : "사이드바에 표시할 이름을 변경합니다.";
-  elements.bookSubmitButton.textContent = mode === "create" ? "만들기" : "저장";
-  elements.bookNameInput.value = mode === "rename" && book ? book.name : "";
-  elements.bookDialog.showModal();
-  requestAnimationFrame(() => elements.bookNameInput.focus());
+function renderSidebarGroup(kind, list, toggle) {
+  const collapsed = Boolean(prefs.collapsed?.[kind]);
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  list.classList.toggle("collapsed", collapsed);
+  const collections = state.collections.filter((item) => item.kind === kind);
+  list.innerHTML = collections.map((collection) => `
+    <div class="collection-item ${collection.id === state.selectedCollectionId ? "active" : ""}">
+      <button class="collection-main" type="button" data-select-collection="${collection.id}">
+        <span class="collection-name">${escapeHtml(collection.name)}</span><span class="collection-count">${collection.items.length}</span>
+      </button>
+      <button class="icon-button collection-menu" type="button" data-rename-collection="${collection.id}" aria-label="${escapeHtml(collection.name)} 이름 수정" title="이름 수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button>
+    </div>`).join("");
 }
 
-function openAddWordsDialog() {
-  const book = getSelectedBook();
-  if (!book) return;
-  resetAddWordsDialog();
-  elements.addWordsDialog.showModal();
-  requestAnimationFrame(() => elements.wordInput.focus());
+function renderEntries() {
+  const collection = selectedCollection();
+  if (!collection) return;
+  const query = elements.searchInput.value.trim().toLocaleLowerCase();
+  const items = collection.items.filter((item) => !query || [item.primaryText, item.meaning, item.example].some((value) => String(value || "").toLocaleLowerCase().includes(query)));
+  elements.entryTableBody.innerHTML = items.map((item) => {
+    const originalIndex = collection.items.findIndex((entry) => entry.id === item.id);
+    return `<tr><td class="number-column">${originalIndex + 1}</td><td class="primary-cell">${escapeHtml(item.primaryText)}</td><td>${escapeHtml(item.meaning)}</td><td class="example-cell">${escapeHtml(item.example || "—")}</td><td class="row-actions-column"><button class="icon-button row-action-button" type="button" data-edit-entry="${item.id}" aria-label="수정" title="수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button></td></tr>`;
+  }).join("");
+  const empty = collection.items.length === 0;
+  elements.emptyState.hidden = !empty;
+  elements.entryTableBody.closest(".table-scroll").hidden = empty;
+  elements.emptyTitle.textContent = `아직 ${kindLabel(collection.kind)}이 없습니다`;
+  elements.emptyDescription.textContent = "직접 입력하거나 CSV 파일에서 한 번에 추가할 수 있습니다.";
+  elements.emptyAddButton.textContent = `첫 ${kindLabel(collection.kind)} 추가하기`;
+  if (!empty && items.length === 0) elements.entryTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#8a8a8a;padding:42px 16px;">검색 결과가 없습니다.</td></tr>`;
 }
 
-function resetAddWordsDialog() {
-  elements.manualWordForm.reset();
+function openCollectionDialog(mode, kind = "vocabulary", id = null) {
+  collectionDialogMode = mode;
+  collectionDialogKind = kind;
+  editingCollectionId = id;
+  const collection = state.collections.find((item) => item.id === id);
+  const label = collectionKindLabel(collection?.kind || kind);
+  elements.collectionDialogTitle.textContent = mode === "create" ? `새 ${label}` : `${label} 이름 수정`;
+  elements.collectionDialogDescription.textContent = mode === "create" ? `새 ${label}의 이름을 입력하세요.` : "왼쪽 사이드바에 표시할 이름을 변경합니다.";
+  elements.collectionSubmitButton.textContent = mode === "create" ? "만들기" : "저장";
+  elements.collectionNameInput.placeholder = kind === "sentence" ? "예: 자주 쓰는 회화 문장" : "예: TOEFL 필수 단어";
+  elements.collectionNameInput.value = collection?.name || "";
+  elements.collectionDialog.showModal();
+  requestAnimationFrame(() => elements.collectionNameInput.focus());
+}
+
+function openAddEntriesDialog() {
+  const collection = selectedCollection();
+  if (!collection) return;
+  resetAddDialog();
+  const label = kindLabel(collection.kind);
+  elements.addDialogTitle.textContent = `${label} 추가`;
+  elements.addDialogDescription.textContent = `“${collection.name}”에 ${label}을 추가합니다.`;
+  elements.primaryInputLabel.textContent = label;
+  elements.primaryInput.placeholder = collection.kind === "sentence" ? "I’m looking forward to it." : "accomplish";
+  elements.csvFormatHint.textContent = collection.kind === "sentence" ? "열 형식: sentence, meaning, example" : "열 형식: word, meaning, example";
+  elements.csvHeaderHint.textContent = collection.kind === "sentence" ? "sentence,meaning,example 또는 문장,뜻,예문 헤더를 인식합니다." : "word,meaning,example 또는 단어,뜻,예문 헤더를 인식합니다.";
+  elements.addEntriesDialog.showModal();
+  requestAnimationFrame(() => elements.primaryInput.focus());
+}
+
+function resetAddDialog() {
+  elements.manualEntryForm.reset();
   elements.csvFileInput.value = "";
-  pendingCsvWords = [];
+  pendingCsvItems = [];
   elements.csvResult.hidden = true;
-  elements.csvResult.textContent = "";
   elements.importCsvButton.disabled = true;
   setAddMode("manual");
 }
-
 function setAddMode(mode) {
   const manual = mode === "manual";
-  elements.manualTab.classList.toggle("active", manual);
-  elements.csvTab.classList.toggle("active", !manual);
-  elements.manualTab.setAttribute("aria-selected", String(manual));
-  elements.csvTab.setAttribute("aria-selected", String(!manual));
-  elements.manualWordForm.hidden = !manual;
-  elements.manualWordForm.classList.toggle("active", manual);
-  elements.csvPanel.hidden = manual;
-  elements.csvPanel.classList.toggle("active", !manual);
+  elements.manualTab.classList.toggle("active", manual); elements.csvTab.classList.toggle("active", !manual);
+  elements.manualTab.setAttribute("aria-selected", String(manual)); elements.csvTab.setAttribute("aria-selected", String(!manual));
+  elements.manualEntryForm.hidden = !manual; elements.csvPanel.hidden = manual;
 }
 
 function parseCsv(text) {
-  const rows = [];
-  let row = [], field = "", quoted = false;
+  const rows = []; let row = [], field = "", quoted = false;
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    if (quoted) {
-      if (char === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (char === '"') quoted = false;
-      else field += char;
-    } else if (char === '"') quoted = true;
+    if (quoted) { if (char === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (char === '"') quoted = false; else field += char; }
+    else if (char === '"') quoted = true;
     else if (char === ",") { row.push(field); field = ""; }
     else if (char === "\n") { row.push(field.replace(/\r$/, "")); rows.push(row); row = []; field = ""; }
     else field += char;
   }
   if (field.length || row.length) { row.push(field.replace(/\r$/, "")); rows.push(row); }
-  return rows.filter((item) => item.some((cell) => cell.trim() !== ""));
+  return rows.filter((cells) => cells.some((cell) => cell.trim()));
 }
 
-function normalizeCsvRows(rows) {
+function normalizeCsvRows(rows, kind) {
   if (!rows.length) return [];
-  const normalizeHeader = (value) => value.trim().toLocaleLowerCase().replace(/\s+/g, "");
-  const header = rows[0].map(normalizeHeader);
-  const wordNames = ["word", "단어", "english", "영어"];
-  const meaningNames = ["meaning", "뜻", "definition", "의미"];
-  const exampleNames = ["example", "예문", "sentence", "문장"];
-  const wordIndex = header.findIndex((value) => wordNames.includes(value));
-  const meaningIndex = header.findIndex((value) => meaningNames.includes(value));
-  const exampleIndex = header.findIndex((value) => exampleNames.includes(value));
-  const hasHeader = wordIndex >= 0 && meaningIndex >= 0;
-  const start = hasHeader ? 1 : 0;
-  const wi = hasHeader ? wordIndex : 0;
-  const mi = hasHeader ? meaningIndex : 1;
-  const ei = hasHeader ? exampleIndex : 2;
-
-  return rows.slice(start).map((row) => ({
-    id: createId(),
-    word: (row[wi] || "").trim(),
-    meaning: (row[mi] || "").trim(),
-    example: ei >= 0 ? (row[ei] || "").trim() : ""
-  })).filter((item) => item.word && item.meaning);
+  const normalize = (value) => value.trim().toLocaleLowerCase().replace(/\s+/g, "");
+  const header = rows[0].map(normalize);
+  const primaryNames = kind === "sentence" ? ["sentence", "문장", "english", "영어"] : ["word", "단어", "english", "영어"];
+  const meaningNames = ["meaning", "뜻", "definition", "의미", "translation", "해석"];
+  const exampleNames = ["example", "예문", "example sentence"];
+  const pi = header.findIndex((value) => primaryNames.includes(value));
+  const mi = header.findIndex((value) => meaningNames.includes(value));
+  const ei = header.findIndex((value) => exampleNames.includes(value));
+  const hasHeader = pi >= 0 && mi >= 0;
+  return rows.slice(hasHeader ? 1 : 0).map((row) => ({ primaryText: (row[hasHeader ? pi : 0] || "").trim(), meaning: (row[hasHeader ? mi : 1] || "").trim(), example: (row[hasHeader && ei >= 0 ? ei : 2] || "").trim() })).filter((item) => item.primaryText && item.meaning);
 }
 
 async function handleCsvFile(file) {
-  if (!file) return;
+  const collection = selectedCollection();
+  if (!file || !collection) return;
   try {
-    const text = await file.text();
-    pendingCsvWords = normalizeCsvRows(parseCsv(text.replace(/^\uFEFF/, "")));
-    if (!pendingCsvWords.length) throw new Error("가져올 수 있는 행이 없습니다.");
+    pendingCsvItems = normalizeCsvRows(parseCsv((await file.text()).replace(/^\uFEFF/, "")), collection.kind);
+    if (!pendingCsvItems.length) throw new Error("가져올 수 있는 행이 없습니다.");
     elements.csvResult.hidden = false;
-    elements.csvResult.textContent = `${file.name}에서 ${pendingCsvWords.length.toLocaleString("ko-KR")}개의 단어를 찾았습니다.`;
+    elements.csvResult.textContent = `${file.name}에서 ${pendingCsvItems.length.toLocaleString("ko-KR")}개의 항목을 찾았습니다.`;
     elements.importCsvButton.disabled = false;
   } catch (error) {
-    pendingCsvWords = [];
-    elements.csvResult.hidden = false;
-    elements.csvResult.textContent = `CSV를 읽지 못했습니다. ${error.message || "파일 형식을 확인하세요."}`;
-    elements.importCsvButton.disabled = true;
+    pendingCsvItems = []; elements.csvResult.hidden = false; elements.csvResult.textContent = error.message; elements.importCsvButton.disabled = true;
   }
 }
 
-function openEditWordDialog(wordId) {
-  const book = getSelectedBook();
-  const item = book?.words.find((word) => word.id === wordId);
+function openEditEntryDialog(id) {
+  const collection = selectedCollection();
+  const item = collection?.items.find((entry) => entry.id === id);
   if (!item) return;
-  editingWordId = item.id;
-  elements.editWordInput.value = item.word;
+  editingEntryId = id;
+  const label = kindLabel(collection.kind);
+  elements.editDialogTitle.textContent = `${label} 수정`;
+  elements.editPrimaryLabel.textContent = label;
+  elements.editPrimaryInput.value = item.primaryText;
   elements.editMeaningInput.value = item.meaning;
   elements.editExampleInput.value = item.example || "";
-  elements.editWordDialog.showModal();
-  requestAnimationFrame(() => elements.editWordInput.focus());
+  elements.editEntryDialog.showModal();
+  requestAnimationFrame(() => elements.editPrimaryInput.focus());
 }
 
-function closeMobileSidebar() {
-  elements.sidebar.classList.remove("open");
-  elements.sidebarBackdrop.classList.remove("show");
-}
+function closeMobileSidebar() { elements.sidebar.classList.remove("open"); elements.sidebarBackdrop.classList.remove("show"); }
+function toggleGroup(kind) { prefs.collapsed = { ...(prefs.collapsed || {}), [kind]: !prefs.collapsed?.[kind] }; savePrefs(); render(); }
 
 function bindEvents() {
-  elements.newBookButton.addEventListener("click", () => openBookDialog("create"));
-  elements.renameBookButton.addEventListener("click", () => openBookDialog("rename", state.selectedBookId));
-  elements.addWordsButton.addEventListener("click", openAddWordsDialog);
-  elements.emptyAddButton.addEventListener("click", openAddWordsDialog);
-  elements.searchInput.addEventListener("input", renderWords);
+  elements.newVocabularyButton.addEventListener("click", () => openCollectionDialog("create", "vocabulary"));
+  elements.newSentenceButton.addEventListener("click", () => openCollectionDialog("create", "sentence"));
+  elements.vocabularyToggle.addEventListener("click", () => toggleGroup("vocabulary"));
+  elements.sentenceToggle.addEventListener("click", () => toggleGroup("sentence"));
+  elements.searchInput.addEventListener("input", renderEntries);
+  elements.addEntriesButton.addEventListener("click", openAddEntriesDialog);
+  elements.emptyAddButton.addEventListener("click", openAddEntriesDialog);
 
-  elements.bookList.addEventListener("click", (event) => {
-    const select = event.target.closest("[data-select-book]");
-    const rename = event.target.closest("[data-rename-book]");
-    if (select) {
-      state.selectedBookId = select.dataset.selectBook;
-      elements.searchInput.value = "";
-      saveState(); render(); closeMobileSidebar();
-    } else if (rename) openBookDialog("rename", rename.dataset.renameBook);
-  });
+  [elements.vocabularyList, elements.sentenceList].forEach((list) => list.addEventListener("click", (event) => {
+    const select = event.target.closest("[data-select-collection]");
+    const rename = event.target.closest("[data-rename-collection]");
+    if (select) { state.selectedCollectionId = select.dataset.selectCollection; prefs.selectedCollectionId = state.selectedCollectionId; elements.searchInput.value = ""; savePrefs(); render(); closeMobileSidebar(); }
+    else if (rename) { const collection = state.collections.find((item) => item.id === rename.dataset.renameCollection); if (collection) openCollectionDialog("rename", collection.kind, collection.id); }
+  }));
 
-  elements.bookForm.addEventListener("submit", (event) => {
+  elements.collectionForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const name = elements.bookNameInput.value.trim();
-    if (!name) return;
-    if (bookDialogMode === "create") {
-      const book = { id: createId(), name, words: [] };
-      state.books.unshift(book); state.selectedBookId = book.id;
-      showToast("새 단어장을 만들었습니다.");
-    } else {
-      const book = getSelectedBook();
-      if (book) book.name = name;
-      showToast("단어장 이름을 변경했습니다.");
-    }
-    saveState(); render(); elements.bookDialog.close();
+    const name = elements.collectionNameInput.value.trim(); if (!name) return;
+    try {
+      if (collectionDialogMode === "create") {
+        const result = await api("/api/collections", { method: "POST", body: JSON.stringify({ kind: collectionDialogKind, name }) });
+        state.selectedCollectionId = result.collection.id; prefs.selectedCollectionId = result.collection.id;
+        showToast(`${collectionKindLabel(collectionDialogKind)}을 만들었습니다.`);
+      } else {
+        await api(`/api/collections/${editingCollectionId}`, { method: "PATCH", body: JSON.stringify({ name }) });
+        state.selectedCollectionId = editingCollectionId; prefs.selectedCollectionId = editingCollectionId;
+        showToast("이름을 변경했습니다.");
+      }
+      savePrefs(); elements.collectionDialog.close(); await loadBootstrap();
+    } catch (error) { showToast(error.message); }
   });
 
   elements.manualTab.addEventListener("click", () => setAddMode("manual"));
   elements.csvTab.addEventListener("click", () => setAddMode("csv"));
-  elements.manualWordForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const book = getSelectedBook();
-    if (!book) return;
-    const word = elements.wordInput.value.trim(), meaning = elements.meaningInput.value.trim(), example = elements.exampleInput.value.trim();
-    if (!word || !meaning) return;
-    book.words.push({ id: createId(), word, meaning, example });
-    saveState(); render(); elements.manualWordForm.reset(); elements.wordInput.focus(); showToast(`“${word}”을 추가했습니다.`);
+  elements.manualEntryForm.addEventListener("submit", async (event) => {
+    event.preventDefault(); const collection = selectedCollection(); if (!collection) return;
+    const item = { primaryText: elements.primaryInput.value.trim(), meaning: elements.meaningInput.value.trim(), example: elements.exampleInput.value.trim() };
+    if (!item.primaryText || !item.meaning) return;
+    try { await api(`/api/collections/${collection.id}/items`, { method: "POST", body: JSON.stringify(item) }); elements.manualEntryForm.reset(); await loadBootstrap(); elements.primaryInput.focus(); showToast(`${kindLabel(collection.kind)}을 추가했습니다.`); }
+    catch (error) { showToast(error.message); }
   });
 
   elements.csvFileInput.addEventListener("change", () => handleCsvFile(elements.csvFileInput.files[0]));
   ["dragenter", "dragover"].forEach((type) => elements.fileDrop.addEventListener(type, (event) => { event.preventDefault(); elements.fileDrop.classList.add("dragging"); }));
   ["dragleave", "drop"].forEach((type) => elements.fileDrop.addEventListener(type, (event) => { event.preventDefault(); elements.fileDrop.classList.remove("dragging"); }));
   elements.fileDrop.addEventListener("drop", (event) => handleCsvFile(event.dataTransfer.files[0]));
-  elements.importCsvButton.addEventListener("click", () => {
-    const book = getSelectedBook();
-    if (!book || !pendingCsvWords.length) return;
-    book.words.push(...pendingCsvWords);
-    const count = pendingCsvWords.length;
-    saveState(); render(); elements.addWordsDialog.close(); showToast(`${count.toLocaleString("ko-KR")}개의 단어를 가져왔습니다.`);
+  elements.importCsvButton.addEventListener("click", async () => {
+    const collection = selectedCollection(); if (!collection || !pendingCsvItems.length) return;
+    try { const count = pendingCsvItems.length; await api(`/api/collections/${collection.id}/items/bulk`, { method: "POST", body: JSON.stringify({ items: pendingCsvItems }) }); elements.addEntriesDialog.close(); await loadBootstrap(); showToast(`${count.toLocaleString("ko-KR")}개를 가져왔습니다.`); }
+    catch (error) { showToast(error.message); }
   });
 
-  elements.wordTableBody.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-edit-word]");
-    if (button) openEditWordDialog(button.dataset.editWord);
+  elements.entryTableBody.addEventListener("click", (event) => { const button = event.target.closest("[data-edit-entry]"); if (button) openEditEntryDialog(button.dataset.editEntry); });
+  elements.editEntryForm.addEventListener("submit", async (event) => {
+    event.preventDefault(); if (!editingEntryId) return;
+    try { await api(`/api/items/${editingEntryId}`, { method: "PATCH", body: JSON.stringify({ primaryText: elements.editPrimaryInput.value.trim(), meaning: elements.editMeaningInput.value.trim(), example: elements.editExampleInput.value.trim() }) }); elements.editEntryDialog.close(); await loadBootstrap(); showToast("수정했습니다."); }
+    catch (error) { showToast(error.message); }
   });
-  elements.editWordForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const book = getSelectedBook();
-    const item = book?.words.find((word) => word.id === editingWordId);
-    if (!item) return;
-    item.word = elements.editWordInput.value.trim();
-    item.meaning = elements.editMeaningInput.value.trim();
-    item.example = elements.editExampleInput.value.trim();
-    if (!item.word || !item.meaning) return;
-    saveState(); render(); elements.editWordDialog.close(); showToast("단어를 수정했습니다.");
-  });
-  elements.deleteWordButton.addEventListener("click", () => {
-    const book = getSelectedBook();
-    const index = book?.words.findIndex((word) => word.id === editingWordId) ?? -1;
-    if (!book || index < 0) return;
-    const [removed] = book.words.splice(index, 1);
-    saveState(); render(); elements.editWordDialog.close(); showToast(`“${removed.word}”을 삭제했습니다.`);
+  elements.deleteEntryButton.addEventListener("click", async () => {
+    if (!editingEntryId || !confirm("이 항목을 삭제할까요?")) return;
+    try { await api(`/api/items/${editingEntryId}`, { method: "DELETE" }); elements.editEntryDialog.close(); await loadBootstrap(); showToast("삭제했습니다."); }
+    catch (error) { showToast(error.message); }
   });
 
-  document.addEventListener("click", (event) => {
-    const closeButton = event.target.closest("[data-close-dialog]");
-    if (!closeButton) return;
-    const dialog = document.getElementById(closeButton.dataset.closeDialog);
-    dialog?.close();
-  });
-  document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-  }));
-
+  document.addEventListener("click", (event) => { const close = event.target.closest("[data-close-dialog]"); if (close) document.getElementById(close.dataset.closeDialog)?.close(); });
   elements.openSidebarButton.addEventListener("click", () => { elements.sidebar.classList.add("open"); elements.sidebarBackdrop.classList.add("show"); });
-  elements.closeSidebarButton.addEventListener("click", closeMobileSidebar);
-  elements.sidebarBackdrop.addEventListener("click", closeMobileSidebar);
+  elements.closeSidebarButton.addEventListener("click", closeMobileSidebar); elements.sidebarBackdrop.addEventListener("click", closeMobileSidebar);
 }
 
 bindEvents();
-render();
+loadBootstrap(false);
