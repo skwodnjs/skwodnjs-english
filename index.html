@@ -29,7 +29,16 @@
         </section>
       </div>
 
-      <div class="sidebar-footer"><div class="storage-note" id="storageNote">Cloudflare D1에 저장됩니다.</div></div>
+      <div class="sidebar-footer">
+        <div id="loggedOutControls">
+          <button class="account-button" id="loginButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/></svg><span>로그인</span></button>
+        </div>
+        <div id="loggedInControls" hidden>
+          <div class="account-status"><span class="status-dot"></span><span>수정 가능</span></div>
+          <button class="account-button" id="changePasswordButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z"/></svg><span>비밀번호 변경</span></button>
+          <button class="account-button" id="logoutButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 17 5-5-5-5M19 12H7M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/></svg><span>로그아웃</span></button>
+        </div>
+      </div>
     </aside>
 
     <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
@@ -52,7 +61,7 @@
         <div class="table-card">
           <div class="table-scroll"><table><thead><tr><th class="number-column">#</th><th id="primaryHeader">단어</th><th>뜻</th><th class="example-column">예문</th><th class="row-actions-column"><span class="sr-only">작업</span></th></tr></thead><tbody id="entryTableBody"></tbody></table></div>
           <div class="empty-state" id="emptyState" hidden><div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z"/><path d="M7 20a2 2 0 0 1 0-4h11M9 8h5M9 11h4"/></svg></div><h2 id="emptyTitle">아직 항목이 없습니다</h2><p id="emptyDescription">직접 입력하거나 CSV 파일에서 한 번에 추가할 수 있습니다.</p><button class="secondary-button" id="emptyAddButton" type="button">첫 항목 추가하기</button></div>
-          <div class="empty-state" id="noCollectionState" hidden><div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div><h2>목록을 먼저 만들어 주세요</h2><p>왼쪽의 새로 만들기 버튼으로 단어장이나 문장을 추가할 수 있습니다.</p></div>
+          <div class="empty-state" id="noCollectionState" hidden><div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div><h2>아직 목록이 없습니다</h2><p id="noCollectionDescription">로그인 후 새 단어장이나 문장을 만들 수 있습니다.</p></div>
         </div>
       </section>
     </main>
@@ -60,17 +69,8 @@
 
   <dialog class="modal" id="collectionDialog">
     <form class="modal-card small-modal" id="collectionForm" method="dialog">
-      <div class="modal-header">
-        <div><h2 id="collectionDialogTitle">새로 만들기</h2><p id="collectionDialogDescription">종류와 이름을 선택하세요.</p></div>
-        <button class="icon-button" type="button" data-close-dialog="collectionDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div class="collection-kind-field" id="collectionKindField">
-        <span class="field-label">종류</span>
-        <div class="kind-selector" role="radiogroup" aria-label="새 목록 종류">
-          <label class="kind-option"><input type="radio" name="collectionKind" value="vocabulary" checked><span>단어장</span></label>
-          <label class="kind-option"><input type="radio" name="collectionKind" value="sentence"><span>문장</span></label>
-        </div>
-      </div>
+      <div class="modal-header"><div><h2 id="collectionDialogTitle">새로 만들기</h2><p id="collectionDialogDescription">종류와 이름을 선택하세요.</p></div><button class="icon-button" type="button" data-close-dialog="collectionDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="collection-kind-field" id="collectionKindField"><span class="field-label">종류</span><div class="kind-selector" role="radiogroup" aria-label="새 목록 종류"><label class="kind-option"><input type="radio" name="collectionKind" value="vocabulary" checked><span>단어장</span></label><label class="kind-option"><input type="radio" name="collectionKind" value="sentence"><span>문장</span></label></div></div>
       <div class="form-field"><label for="collectionNameInput">이름</label><input id="collectionNameInput" type="text" maxlength="80" placeholder="예: TOEFL 필수 단어" required></div>
       <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="collectionDialog">취소</button><button class="primary-button" id="collectionSubmitButton" type="submit">만들기</button></div>
     </form>
@@ -81,11 +81,7 @@
       <div class="modal-header"><div><h2 id="addDialogTitle">단어 추가</h2><p id="addDialogDescription">선택한 목록에 추가합니다.</p></div><button class="icon-button" type="button" data-close-dialog="addEntriesDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="tab-list" role="tablist" aria-label="추가 방식"><button class="tab-button active" id="manualTab" type="button" role="tab" aria-selected="true">직접 추가</button><button class="tab-button" id="csvTab" type="button" role="tab" aria-selected="false">CSV 가져오기</button></div>
       <form id="manualEntryForm" class="tab-panel active">
-        <div class="form-grid">
-          <div class="form-field"><label for="primaryInput"><span id="primaryInputLabel">단어</span> <span class="required">*</span></label><input id="primaryInput" type="text" required autocomplete="off"></div>
-          <div class="form-field"><label for="meaningInput">뜻 <span class="required">*</span></label><input id="meaningInput" type="text" placeholder="뜻을 입력하세요" required autocomplete="off"></div>
-          <div class="form-field full-width"><label for="exampleInput">예문</label><textarea id="exampleInput" rows="3" placeholder="예문을 입력하세요"></textarea></div>
-        </div>
+        <div class="form-grid"><div class="form-field"><label for="primaryInput"><span id="primaryInputLabel">단어</span> <span class="required">*</span></label><input id="primaryInput" type="text" required autocomplete="off"></div><div class="form-field"><label for="meaningInput">뜻 <span class="required">*</span></label><input id="meaningInput" type="text" placeholder="뜻을 입력하세요" required autocomplete="off"></div><div class="form-field full-width"><label for="exampleInput">예문</label><textarea id="exampleInput" rows="3" placeholder="예문을 입력하세요"></textarea></div></div>
         <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="addEntriesDialog">취소</button><button class="primary-button" type="submit">추가</button></div>
       </form>
       <section id="csvPanel" class="tab-panel" hidden>
@@ -104,6 +100,26 @@
       <div class="form-field"><label for="editMeaningInput">뜻</label><input id="editMeaningInput" type="text" required></div>
       <div class="form-field"><label for="editExampleInput">예문</label><textarea id="editExampleInput" rows="3"></textarea></div>
       <div class="modal-actions split-actions"><button class="danger-ghost-button" id="deleteEntryButton" type="button">삭제</button><div><button class="ghost-button cancel-button" type="button" data-close-dialog="editEntryDialog">취소</button><button class="primary-button" type="submit">저장</button></div></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="loginDialog">
+    <form class="modal-card auth-modal" id="loginForm" method="dialog">
+      <div class="modal-header"><div><h2>로그인</h2><p>수정 권한을 사용하려면 비밀번호를 입력하세요.</p></div><button class="icon-button" type="button" data-close-dialog="loginDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="form-field"><label for="loginPasswordInput">비밀번호</label><input id="loginPasswordInput" type="password" autocomplete="current-password" required></div>
+      <div class="modal-error" id="loginError" hidden></div>
+      <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="loginDialog">취소</button><button class="primary-button" id="loginSubmitButton" type="submit">로그인</button></div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="passwordDialog">
+    <form class="modal-card auth-modal" id="passwordForm" method="dialog">
+      <div class="modal-header"><div><h2>비밀번호 변경</h2><p>현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.</p></div><button class="icon-button" type="button" data-close-dialog="passwordDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="form-field"><label for="currentPasswordInput">현재 비밀번호</label><input id="currentPasswordInput" type="password" autocomplete="current-password" required></div>
+      <div class="form-field"><label for="newPasswordInput">새 비밀번호</label><input id="newPasswordInput" type="password" autocomplete="new-password" minlength="4" required></div>
+      <div class="form-field"><label for="confirmPasswordInput">새 비밀번호 확인</label><input id="confirmPasswordInput" type="password" autocomplete="new-password" minlength="4" required></div>
+      <div class="modal-error" id="passwordError" hidden></div>
+      <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="passwordDialog">취소</button><button class="primary-button" id="passwordSubmitButton" type="submit">변경</button></div>
     </form>
   </dialog>
 
