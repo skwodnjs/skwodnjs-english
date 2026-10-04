@@ -401,8 +401,9 @@ function toggleGroup(kind) {
 }
 
 function toggleSentenceExplanation(entryId) {
-  if (expandedSentenceIds.has(entryId)) expandedSentenceIds.delete(entryId);
-  else expandedSentenceIds.add(entryId);
+  const wasExpanded = expandedSentenceIds.has(entryId);
+  expandedSentenceIds.clear();
+  if (!wasExpanded) expandedSentenceIds.add(entryId);
   renderEntries();
 }
 
