@@ -7,7 +7,8 @@ Cloudflare Workers + D1 기반 영어 공부용 웹사이트입니다.
 - ChatGPT 스타일 좌측 사이드바
 - `새로 만들기`에서 단어장/문장 선택
 - 단어장과 문장 목록 각각 접기/펼치기
-- 단어/문장을 표 형태로 표시
+- 단어는 `단어 / 뜻 / 예문`으로 표시
+- 문장은 메인에서 `문장 / 뜻`만 표시하고 행을 클릭하면 `해설`을 접기/펼치기
 - 수동 추가 및 CSV 일괄 추가
 - 검색, 수정, 삭제
 - 비밀번호 기반 수정 권한
@@ -29,6 +30,18 @@ Browser
 
 `worker.js`가 정적 파일과 API를 같은 Worker에서 처리합니다. `wrangler.jsonc`의 `assets.run_worker_first`가 `/api`와 `/api/*` 요청을 Worker 코드로 먼저 보냅니다.
 
+## 문장 데이터
+
+문장 항목은 다음 세 필드로 사용합니다.
+
+```text
+문장 / 뜻 / 해설
+```
+
+메인 목록에서는 문장과 뜻만 보이고, 문장 행을 클릭하거나 키보드 Enter/Space를 누르면 아래에 해설이 열립니다. 다시 누르면 닫힙니다.
+
+D1의 공통 `study_items` 구조를 그대로 사용하며 문장의 해설은 `notes_text`에 저장합니다. 이전 버전에서 문장의 세 번째 값을 `example_text`에 저장한 데이터가 있으면 읽을 때 해설로 호환 처리합니다.
+
 ## 인증
 
 사용자 계정 시스템은 사용하지 않습니다. 하나의 관리 비밀번호로 수정 권한을 제어합니다.
@@ -43,6 +56,16 @@ Browser
 - 비로그인 상태의 POST/PATCH/PUT/DELETE API 요청은 서버에서 401로 거부
 
 인증 스키마는 `migrations/0002_auth.sql`에 있으며 Worker도 배포 시 필요한 인증 테이블과 초기 설정이 없으면 자동 생성합니다.
+
+### 비밀번호 분실 시 초기화
+
+저장소의 `scripts/reset-password.sql`을 원격 D1에 실행합니다.
+
+```bash
+npx wrangler@latest d1 execute skwodnjs-english --remote --file scripts/reset-password.sql
+```
+
+그 뒤 사이트를 다시 열면 인증 설정이 재생성되고 관리 비밀번호가 `1234`로 돌아갑니다. 기존 로그인 세션은 모두 폐기됩니다.
 
 ## D1 스키마
 
@@ -94,8 +117,8 @@ accomplish,"성취하다, 완수하다",She accomplished her goal.
 문장:
 
 ```csv
-sentence,meaning,example
-How have you been?,잘 지냈어?,How have you been since graduation?
+sentence,meaning,explanation
+How have you been?,잘 지냈어?,안부를 묻는 현재완료 표현
 ```
 
-한글 헤더(`단어,뜻,예문`, `문장,뜻,예문`)도 인식합니다. 헤더가 없으면 1열=내용, 2열=뜻, 3열=예문으로 해석합니다.
+한글 헤더 `단어,뜻,예문`과 `문장,뜻,해설`도 인식합니다. 헤더가 없으면 단어장은 1열=단어, 2열=뜻, 3열=예문, 문장은 1열=문장, 2열=뜻, 3열=해설로 해석합니다.
