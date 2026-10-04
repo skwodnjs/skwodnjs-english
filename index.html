@@ -15,22 +15,16 @@
           <button class="icon-button mobile-only" id="closeSidebarButton" type="button" aria-label="사이드바 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           <div class="brand">English</div>
         </div>
-        <button class="new-item-button" id="newVocabularyButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>새 단어장</span></button>
-        <button class="new-item-button" id="newSentenceButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>새 문장</span></button>
+        <button class="new-item-button" id="newCollectionButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>새로 만들기</span></button>
       </div>
 
       <div class="sidebar-scroll">
         <section class="sidebar-group">
-          <button class="sidebar-section-toggle" id="vocabularyToggle" type="button" aria-expanded="true">
-            <span>단어장</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
+          <button class="sidebar-section-toggle" id="vocabularyToggle" type="button" aria-expanded="true"><span>단어장</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
           <nav class="collection-list" id="vocabularyList" aria-label="단어장 목록"></nav>
         </section>
-
         <section class="sidebar-group">
-          <button class="sidebar-section-toggle" id="sentenceToggle" type="button" aria-expanded="true">
-            <span>문장</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
+          <button class="sidebar-section-toggle" id="sentenceToggle" type="button" aria-expanded="true"><span>문장</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
           <nav class="collection-list" id="sentenceList" aria-label="문장 목록"></nav>
         </section>
       </div>
@@ -48,37 +42,17 @@
 
       <section class="content-wrap">
         <div class="page-heading">
-          <div>
-            <h1 id="collectionTitle">불러오는 중</h1>
-            <p id="collectionMeta">데이터를 불러오고 있습니다.</p>
-          </div>
+          <div><h1 id="collectionTitle">불러오는 중</h1><p id="collectionMeta">데이터를 불러오고 있습니다.</p></div>
           <div class="heading-actions">
-            <label class="search-box">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input id="searchInput" type="search" placeholder="검색" autocomplete="off">
-            </label>
+            <label class="search-box"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="searchInput" type="search" placeholder="검색" autocomplete="off"></label>
             <button class="primary-button" id="addEntriesButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>추가하기</span></button>
           </div>
         </div>
 
         <div class="table-card">
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th class="number-column">#</th><th id="primaryHeader">단어</th><th>뜻</th><th class="example-column">예문</th><th class="row-actions-column"><span class="sr-only">작업</span></th></tr></thead>
-              <tbody id="entryTableBody"></tbody>
-            </table>
-          </div>
-          <div class="empty-state" id="emptyState" hidden>
-            <div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z"/><path d="M7 20a2 2 0 0 1 0-4h11M9 8h5M9 11h4"/></svg></div>
-            <h2 id="emptyTitle">아직 항목이 없습니다</h2>
-            <p id="emptyDescription">직접 입력하거나 CSV 파일에서 한 번에 추가할 수 있습니다.</p>
-            <button class="secondary-button" id="emptyAddButton" type="button">첫 항목 추가하기</button>
-          </div>
-          <div class="empty-state" id="noCollectionState" hidden>
-            <div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
-            <h2>목록을 먼저 만들어 주세요</h2>
-            <p>왼쪽의 새 단어장 또는 새 문장 버튼으로 시작할 수 있습니다.</p>
-          </div>
+          <div class="table-scroll"><table><thead><tr><th class="number-column">#</th><th id="primaryHeader">단어</th><th>뜻</th><th class="example-column">예문</th><th class="row-actions-column"><span class="sr-only">작업</span></th></tr></thead><tbody id="entryTableBody"></tbody></table></div>
+          <div class="empty-state" id="emptyState" hidden><div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4Z"/><path d="M7 20a2 2 0 0 1 0-4h11M9 8h5M9 11h4"/></svg></div><h2 id="emptyTitle">아직 항목이 없습니다</h2><p id="emptyDescription">직접 입력하거나 CSV 파일에서 한 번에 추가할 수 있습니다.</p><button class="secondary-button" id="emptyAddButton" type="button">첫 항목 추가하기</button></div>
+          <div class="empty-state" id="noCollectionState" hidden><div class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div><h2>목록을 먼저 만들어 주세요</h2><p>왼쪽의 새로 만들기 버튼으로 단어장이나 문장을 추가할 수 있습니다.</p></div>
         </div>
       </section>
     </main>
@@ -87,55 +61,49 @@
   <dialog class="modal" id="collectionDialog">
     <form class="modal-card small-modal" id="collectionForm" method="dialog">
       <div class="modal-header">
-        <div><h2 id="collectionDialogTitle">새 단어장</h2><p id="collectionDialogDescription">이름을 입력하세요.</p></div>
+        <div><h2 id="collectionDialogTitle">새로 만들기</h2><p id="collectionDialogDescription">종류와 이름을 선택하세요.</p></div>
         <button class="icon-button" type="button" data-close-dialog="collectionDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div class="form-field"><label for="collectionNameInput">이름</label><input id="collectionNameInput" type="text" maxlength="80" required></div>
-      <div class="modal-actions"><button class="ghost-button" type="button" data-close-dialog="collectionDialog">취소</button><button class="primary-button" id="collectionSubmitButton" type="submit">만들기</button></div>
+      <div class="collection-kind-field" id="collectionKindField">
+        <span class="field-label">종류</span>
+        <div class="kind-selector" role="radiogroup" aria-label="새 목록 종류">
+          <label class="kind-option"><input type="radio" name="collectionKind" value="vocabulary" checked><span>단어장</span></label>
+          <label class="kind-option"><input type="radio" name="collectionKind" value="sentence"><span>문장</span></label>
+        </div>
+      </div>
+      <div class="form-field"><label for="collectionNameInput">이름</label><input id="collectionNameInput" type="text" maxlength="80" placeholder="예: TOEFL 필수 단어" required></div>
+      <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="collectionDialog">취소</button><button class="primary-button" id="collectionSubmitButton" type="submit">만들기</button></div>
     </form>
   </dialog>
 
   <dialog class="modal" id="addEntriesDialog">
     <div class="modal-card words-modal">
-      <div class="modal-header">
-        <div><h2 id="addDialogTitle">단어 추가</h2><p id="addDialogDescription">선택한 목록에 추가합니다.</p></div>
-        <button class="icon-button" type="button" data-close-dialog="addEntriesDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div class="tab-list" role="tablist" aria-label="추가 방식">
-        <button class="tab-button active" id="manualTab" type="button" role="tab" aria-selected="true">직접 추가</button>
-        <button class="tab-button" id="csvTab" type="button" role="tab" aria-selected="false">CSV 가져오기</button>
-      </div>
+      <div class="modal-header"><div><h2 id="addDialogTitle">단어 추가</h2><p id="addDialogDescription">선택한 목록에 추가합니다.</p></div><button class="icon-button" type="button" data-close-dialog="addEntriesDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="tab-list" role="tablist" aria-label="추가 방식"><button class="tab-button active" id="manualTab" type="button" role="tab" aria-selected="true">직접 추가</button><button class="tab-button" id="csvTab" type="button" role="tab" aria-selected="false">CSV 가져오기</button></div>
       <form id="manualEntryForm" class="tab-panel active">
         <div class="form-grid">
           <div class="form-field"><label for="primaryInput"><span id="primaryInputLabel">단어</span> <span class="required">*</span></label><input id="primaryInput" type="text" required autocomplete="off"></div>
           <div class="form-field"><label for="meaningInput">뜻 <span class="required">*</span></label><input id="meaningInput" type="text" placeholder="뜻을 입력하세요" required autocomplete="off"></div>
           <div class="form-field full-width"><label for="exampleInput">예문</label><textarea id="exampleInput" rows="3" placeholder="예문을 입력하세요"></textarea></div>
         </div>
-        <div class="modal-actions"><button class="ghost-button" type="button" data-close-dialog="addEntriesDialog">취소</button><button class="primary-button" type="submit">추가</button></div>
+        <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="addEntriesDialog">취소</button><button class="primary-button" type="submit">추가</button></div>
       </form>
       <section id="csvPanel" class="tab-panel" hidden>
-        <label class="file-drop" id="fileDrop" for="csvFileInput">
-          <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
-          <div class="upload-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg></div>
-          <strong>CSV 파일을 선택하거나 여기에 놓으세요</strong><span id="csvFormatHint">열 형식: word, meaning, example</span>
-        </label>
+        <label class="file-drop" id="fileDrop" for="csvFileInput"><input id="csvFileInput" type="file" accept=".csv,text/csv" hidden><div class="upload-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg></div><strong>CSV 파일을 선택하거나 여기에 놓으세요</strong><span id="csvFormatHint">열 형식: word, meaning, example</span></label>
         <div class="csv-help"><div id="csvHeaderHint">첫 행의 헤더를 자동으로 인식합니다.</div><div>헤더가 없으면 1열=내용, 2열=뜻, 3열=예문으로 가져옵니다.</div></div>
         <div class="csv-result" id="csvResult" hidden></div>
-        <div class="modal-actions"><button class="ghost-button" type="button" data-close-dialog="addEntriesDialog">취소</button><button class="primary-button" id="importCsvButton" type="button" disabled>가져오기</button></div>
+        <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="addEntriesDialog">취소</button><button class="primary-button" id="importCsvButton" type="button" disabled>가져오기</button></div>
       </section>
     </div>
   </dialog>
 
   <dialog class="modal" id="editEntryDialog">
     <form class="modal-card small-modal" id="editEntryForm" method="dialog">
-      <div class="modal-header">
-        <div><h2 id="editDialogTitle">항목 수정</h2><p>내용, 뜻, 예문을 수정할 수 있습니다.</p></div>
-        <button class="icon-button" type="button" data-close-dialog="editEntryDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
+      <div class="modal-header"><div><h2 id="editDialogTitle">항목 수정</h2><p>내용, 뜻, 예문을 수정할 수 있습니다.</p></div><button class="icon-button" type="button" data-close-dialog="editEntryDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="form-field"><label for="editPrimaryInput" id="editPrimaryLabel">단어</label><input id="editPrimaryInput" type="text" required></div>
       <div class="form-field"><label for="editMeaningInput">뜻</label><input id="editMeaningInput" type="text" required></div>
       <div class="form-field"><label for="editExampleInput">예문</label><textarea id="editExampleInput" rows="3"></textarea></div>
-      <div class="modal-actions split-actions"><button class="danger-ghost-button" id="deleteEntryButton" type="button">삭제</button><div><button class="ghost-button" type="button" data-close-dialog="editEntryDialog">취소</button><button class="primary-button" type="submit">저장</button></div></div>
+      <div class="modal-actions split-actions"><button class="danger-ghost-button" id="deleteEntryButton" type="button">삭제</button><div><button class="ghost-button cancel-button" type="button" data-close-dialog="editEntryDialog">취소</button><button class="primary-button" type="submit">저장</button></div></div>
     </form>
   </dialog>
 
