@@ -90,6 +90,20 @@ tbody tr:hover { background: #fcfcfc; }
 .example-cell { color: var(--muted); }
 .row-action-button { width: 30px; height: 30px; color: var(--muted); opacity: .45; }
 tbody tr:hover .row-action-button { opacity: 1; }
+.sentence-table th:nth-child(2) { width: 52%; }
+.sentence-row { cursor: pointer; }
+.sentence-row:focus { outline: none; }
+.sentence-row:focus td { background: #f7faf9; }
+.sentence-row[aria-expanded="true"] td { background: #fafafa; border-bottom-color: transparent; }
+.sentence-primary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sentence-primary > span { min-width: 0; }
+.sentence-chevron { width: 16px; height: 16px; flex: 0 0 auto; color: var(--subtle); transition: transform .16s ease; }
+.sentence-row[aria-expanded="true"] .sentence-chevron { transform: rotate(180deg); }
+.sentence-explanation-row:hover { background: transparent; }
+.sentence-explanation-row td { height: auto; padding: 0; background: #fafafa; }
+.sentence-explanation { padding: 2px 72px 20px 82px; }
+.sentence-explanation-label { margin-bottom: 6px; color: var(--subtle); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.sentence-explanation-body { color: var(--muted); font-size: 13px; line-height: 1.7; word-break: keep-all; }
 .empty-state { padding: 72px 24px; text-align: center; }
 .empty-icon { width: 54px; height: 54px; border-radius: 16px; background: #f4f4f4; margin: 0 auto 16px; display: grid; place-items: center; color: var(--muted); }
 .empty-state h2 { margin: 0; font-size: 18px; }
@@ -149,6 +163,7 @@ tbody tr:hover .row-action-button { opacity: 1; }
   .heading-actions { width: 100%; }
   .search-box { flex: 1; width: auto; }
   .example-column { width: 42%; }
+  .sentence-explanation { padding-right: 48px; }
 }
 
 @media (max-width: 620px) {
@@ -156,6 +171,8 @@ tbody tr:hover .row-action-button { opacity: 1; }
   .heading-actions { align-items: stretch; flex-direction: column; }
   .search-box, .heading-actions > .primary-button { width: 100%; }
   table { min-width: 700px; }
+  .sentence-table { min-width: 620px; }
+  .sentence-explanation { padding: 2px 54px 18px 82px; }
   .form-grid { grid-template-columns: 1fr; }
   .full-width { grid-column: auto; }
   .modal-card { padding: 18px; }
