@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS collections (
   id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('vocabulary', 'sentence')),
+  kind TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   sort_order INTEGER NOT NULL DEFAULT 0,
