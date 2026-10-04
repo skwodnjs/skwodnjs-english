@@ -1,15 +1,19 @@
 const $ = (selector) => document.querySelector(selector);
 const elements = {
   sidebar: $("#sidebar"), sidebarBackdrop: $("#sidebarBackdrop"), openSidebarButton: $("#openSidebarButton"), closeSidebarButton: $("#closeSidebarButton"),
-  newCollectionButton: $("#newCollectionButton"), vocabularyToggle: $("#vocabularyToggle"), sentenceToggle: $("#sentenceToggle"), vocabularyList: $("#vocabularyList"), sentenceList: $("#sentenceList"), storageNote: $("#storageNote"),
-  collectionTitle: $("#collectionTitle"), collectionMeta: $("#collectionMeta"), primaryHeader: $("#primaryHeader"), searchInput: $("#searchInput"), addEntriesButton: $("#addEntriesButton"), entryTableBody: $("#entryTableBody"), emptyState: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyDescription: $("#emptyDescription"), emptyAddButton: $("#emptyAddButton"), noCollectionState: $("#noCollectionState"),
+  newCollectionButton: $("#newCollectionButton"), vocabularyToggle: $("#vocabularyToggle"), sentenceToggle: $("#sentenceToggle"), vocabularyList: $("#vocabularyList"), sentenceList: $("#sentenceList"),
+  loggedOutControls: $("#loggedOutControls"), loggedInControls: $("#loggedInControls"), loginButton: $("#loginButton"), changePasswordButton: $("#changePasswordButton"), logoutButton: $("#logoutButton"),
+  collectionTitle: $("#collectionTitle"), collectionMeta: $("#collectionMeta"), primaryHeader: $("#primaryHeader"), searchInput: $("#searchInput"), addEntriesButton: $("#addEntriesButton"), entryTableBody: $("#entryTableBody"), emptyState: $("#emptyState"), emptyTitle: $("#emptyTitle"), emptyDescription: $("#emptyDescription"), emptyAddButton: $("#emptyAddButton"), noCollectionState: $("#noCollectionState"), noCollectionDescription: $("#noCollectionDescription"),
   collectionDialog: $("#collectionDialog"), collectionForm: $("#collectionForm"), collectionDialogTitle: $("#collectionDialogTitle"), collectionDialogDescription: $("#collectionDialogDescription"), collectionKindField: $("#collectionKindField"), collectionNameInput: $("#collectionNameInput"), collectionSubmitButton: $("#collectionSubmitButton"),
   addEntriesDialog: $("#addEntriesDialog"), addDialogTitle: $("#addDialogTitle"), addDialogDescription: $("#addDialogDescription"), manualTab: $("#manualTab"), csvTab: $("#csvTab"), manualEntryForm: $("#manualEntryForm"), csvPanel: $("#csvPanel"), primaryInputLabel: $("#primaryInputLabel"), primaryInput: $("#primaryInput"), meaningInput: $("#meaningInput"), exampleInput: $("#exampleInput"), csvFileInput: $("#csvFileInput"), fileDrop: $("#fileDrop"), csvFormatHint: $("#csvFormatHint"), csvHeaderHint: $("#csvHeaderHint"), csvResult: $("#csvResult"), importCsvButton: $("#importCsvButton"),
-  editEntryDialog: $("#editEntryDialog"), editEntryForm: $("#editEntryForm"), editDialogTitle: $("#editDialogTitle"), editPrimaryLabel: $("#editPrimaryLabel"), editPrimaryInput: $("#editPrimaryInput"), editMeaningInput: $("#editMeaningInput"), editExampleInput: $("#editExampleInput"), deleteEntryButton: $("#deleteEntryButton"), toast: $("#toast")
+  editEntryDialog: $("#editEntryDialog"), editEntryForm: $("#editEntryForm"), editDialogTitle: $("#editDialogTitle"), editPrimaryLabel: $("#editPrimaryLabel"), editPrimaryInput: $("#editPrimaryInput"), editMeaningInput: $("#editMeaningInput"), editExampleInput: $("#editExampleInput"), deleteEntryButton: $("#deleteEntryButton"),
+  loginDialog: $("#loginDialog"), loginForm: $("#loginForm"), loginPasswordInput: $("#loginPasswordInput"), loginError: $("#loginError"), loginSubmitButton: $("#loginSubmitButton"),
+  passwordDialog: $("#passwordDialog"), passwordForm: $("#passwordForm"), currentPasswordInput: $("#currentPasswordInput"), newPasswordInput: $("#newPasswordInput"), confirmPasswordInput: $("#confirmPasswordInput"), passwordError: $("#passwordError"), passwordSubmitButton: $("#passwordSubmitButton"),
+  toast: $("#toast")
 };
 
 const COLLAPSE_KEY = "skwodnjs-english:sidebar-groups:v1";
-let state = { collections: [], selectedId: null };
+let state = { collections: [], selectedId: null, authenticated: false };
 let collectionDialogMode = "create";
 let editingCollectionId = null;
 let editingEntryId = null;
@@ -41,15 +45,36 @@ function showToast(message) {
   toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2200);
 }
 
+function showFormError(element, message) {
+  element.textContent = message;
+  element.hidden = !message;
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(`/api${path}`, { headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
+  const response = await fetch(`/api${path}`, { credentials: "same-origin", headers: { "content-type": "application/json", ...(options.headers || {}) }, ...options });
   const contentType = response.headers.get("content-type") || "";
   const payload = contentType.includes("application/json") ? await response.json() : null;
   if (!response.ok) {
-    if (response.status === 404 && !payload) throw new Error("API가 배포되지 않았습니다. Cloudflare Worker 설정을 확인하세요.");
-    throw new Error(payload?.error || `요청에 실패했습니다. (${response.status})`);
+    const error = new Error(response.status === 404 && !payload ? "API가 배포되지 않았습니다. Cloudflare Worker 설정을 확인하세요." : payload?.error || `요청에 실패했습니다. (${response.status})`);
+    error.status = response.status;
+    throw error;
   }
   return payload;
+}
+
+function reportError(error) {
+  console.error(error);
+  if (error?.status === 401) {
+    state.authenticated = false;
+    render();
+  }
+  showToast(error?.message || "요청에 실패했습니다.");
+}
+
+function requireLogin() {
+  if (state.authenticated) return true;
+  openLoginDialog();
+  return false;
 }
 
 function renderCollectionList(kind, target) {
@@ -60,10 +85,14 @@ function renderCollectionList(kind, target) {
         <span class="collection-name">${escapeHtml(collection.name)}</span>
         <span class="collection-count">${collection.items.length}</span>
       </button>
-      <button class="icon-button collection-menu" type="button" data-rename-collection="${collection.id}" aria-label="${escapeHtml(collection.name)} 이름 수정" title="이름 수정">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg>
-      </button>
+      ${state.authenticated ? `<button class="icon-button collection-menu" type="button" data-rename-collection="${collection.id}" aria-label="${escapeHtml(collection.name)} 이름 수정" title="이름 수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button>` : ""}
     </div>`).join("");
+}
+
+function renderAuth() {
+  elements.loggedOutControls.hidden = state.authenticated;
+  elements.loggedInControls.hidden = !state.authenticated;
+  elements.newCollectionButton.hidden = !state.authenticated;
 }
 
 function renderSidebar() {
@@ -73,6 +102,7 @@ function renderSidebar() {
   elements.sentenceToggle.setAttribute("aria-expanded", String(!collapsed.sentence));
   elements.vocabularyList.classList.toggle("collapsed", collapsed.vocabulary);
   elements.sentenceList.classList.toggle("collapsed", collapsed.sentence);
+  renderAuth();
 }
 
 function renderMain() {
@@ -80,12 +110,13 @@ function renderMain() {
   const tableScroll = elements.entryTableBody.closest(".table-scroll");
   if (!collection) {
     elements.collectionTitle.textContent = "English";
-    elements.collectionMeta.textContent = "단어장 또는 문장을 만들어 시작하세요.";
+    elements.collectionMeta.textContent = state.collections.length ? "왼쪽에서 목록을 선택하세요." : "단어장 또는 문장을 만들어 시작하세요.";
     elements.searchInput.disabled = true;
-    elements.addEntriesButton.disabled = true;
+    elements.addEntriesButton.hidden = true;
     tableScroll.hidden = true;
     elements.emptyState.hidden = true;
     elements.noCollectionState.hidden = false;
+    elements.noCollectionDescription.textContent = state.authenticated ? "왼쪽의 새로 만들기 버튼으로 단어장이나 문장을 추가할 수 있습니다." : "로그인 후 새 단어장이나 문장을 만들 수 있습니다.";
     return;
   }
 
@@ -95,10 +126,11 @@ function renderMain() {
   elements.primaryHeader.textContent = isSentence ? "문장" : "단어";
   elements.searchInput.placeholder = isSentence ? "문장 검색" : "단어 검색";
   elements.searchInput.disabled = false;
-  elements.addEntriesButton.disabled = false;
+  elements.addEntriesButton.hidden = !state.authenticated;
   elements.emptyTitle.textContent = `아직 ${isSentence ? "문장이" : "단어가"} 없습니다`;
-  elements.emptyDescription.textContent = `직접 입력하거나 CSV 파일에서 한 번에 ${isSentence ? "문장을" : "단어를"} 추가할 수 있습니다.`;
+  elements.emptyDescription.textContent = state.authenticated ? `직접 입력하거나 CSV 파일에서 한 번에 ${isSentence ? "문장을" : "단어를"} 추가할 수 있습니다.` : "로그인하면 항목을 추가할 수 있습니다.";
   elements.emptyAddButton.textContent = `첫 ${isSentence ? "문장" : "단어"} 추가하기`;
+  elements.emptyAddButton.hidden = !state.authenticated;
   elements.noCollectionState.hidden = true;
   renderEntries();
 }
@@ -124,7 +156,7 @@ function renderEntries() {
       <td class="word-cell">${escapeHtml(item.primaryText)}</td>
       <td>${escapeHtml(item.meaning)}</td>
       <td class="example-cell">${escapeHtml(item.example || "—")}</td>
-      <td class="row-actions-column"><button class="icon-button row-action-button" type="button" data-edit-entry="${item.id}" aria-label="수정" title="수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button></td>
+      <td class="row-actions-column">${state.authenticated ? `<button class="icon-button row-action-button" type="button" data-edit-entry="${item.id}" aria-label="수정" title="수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button>` : ""}</td>
     </tr>`;
   }).join("");
 }
@@ -135,25 +167,39 @@ function render() {
 }
 
 async function loadData() {
-  elements.storageNote.textContent = "Cloudflare D1에서 불러오는 중...";
   try {
-    const data = await api("/bootstrap");
+    const [data, auth] = await Promise.all([api("/bootstrap"), api("/auth/status")]);
     state.collections = Array.isArray(data?.collections) ? data.collections : [];
+    state.authenticated = Boolean(auth?.authenticated);
     if (!state.collections.some((collection) => collection.id === state.selectedId)) state.selectedId = state.collections[0]?.id || null;
-    elements.storageNote.textContent = "Cloudflare D1에 저장됩니다.";
     render();
   } catch (error) {
     console.error(error);
-    elements.storageNote.textContent = "서버 연결 오류";
     elements.collectionTitle.textContent = "데이터를 불러오지 못했습니다";
     elements.collectionMeta.textContent = error.message;
-    elements.addEntriesButton.disabled = true;
+    elements.addEntriesButton.hidden = true;
     elements.searchInput.disabled = true;
     showToast(error.message);
   }
 }
 
+function openLoginDialog() {
+  elements.loginForm.reset();
+  showFormError(elements.loginError, "");
+  elements.loginDialog.showModal();
+  requestAnimationFrame(() => elements.loginPasswordInput.focus());
+}
+
+function openPasswordDialog() {
+  if (!requireLogin()) return;
+  elements.passwordForm.reset();
+  showFormError(elements.passwordError, "");
+  elements.passwordDialog.showModal();
+  requestAnimationFrame(() => elements.currentPasswordInput.focus());
+}
+
 function openCreateCollectionDialog() {
+  if (!requireLogin()) return;
   collectionDialogMode = "create";
   editingCollectionId = null;
   elements.collectionDialogTitle.textContent = "새로 만들기";
@@ -169,6 +215,7 @@ function openCreateCollectionDialog() {
 }
 
 function openRenameCollectionDialog(collectionId) {
+  if (!requireLogin()) return;
   const collection = state.collections.find((item) => item.id === collectionId);
   if (!collection) return;
   collectionDialogMode = "rename";
@@ -198,6 +245,7 @@ function resetAddDialog() {
 }
 
 function openAddEntriesDialog() {
+  if (!requireLogin()) return;
   const collection = getSelectedCollection();
   if (!collection) return;
   resetAddDialog();
@@ -278,6 +326,7 @@ async function handleCsvFile(file) {
 }
 
 function openEditEntryDialog(entryId) {
+  if (!requireLogin()) return;
   const collection = getSelectedCollection();
   const item = collection?.items.find((entry) => entry.id === entryId);
   if (!item) return;
@@ -318,6 +367,55 @@ function bindCollectionList(target) {
 }
 
 function bindEvents() {
+  elements.loginButton.addEventListener("click", openLoginDialog);
+  elements.changePasswordButton.addEventListener("click", openPasswordDialog);
+  elements.logoutButton.addEventListener("click", async () => {
+    try {
+      await api("/auth/logout", { method: "POST", body: "{}" });
+      state.authenticated = false;
+      render();
+      showToast("로그아웃했습니다.");
+    } catch (error) { reportError(error); }
+  });
+
+  elements.loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    showFormError(elements.loginError, "");
+    elements.loginSubmitButton.disabled = true;
+    try {
+      const data = await api("/auth/login", { method: "POST", body: JSON.stringify({ password: elements.loginPasswordInput.value }) });
+      state.authenticated = Boolean(data?.authenticated);
+      elements.loginDialog.close();
+      render();
+      showToast("로그인했습니다.");
+    } catch (error) {
+      showFormError(elements.loginError, error.message);
+      elements.loginPasswordInput.select();
+    } finally { elements.loginSubmitButton.disabled = false; }
+  });
+
+  elements.passwordForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    showFormError(elements.passwordError, "");
+    const currentPassword = elements.currentPasswordInput.value;
+    const newPassword = elements.newPasswordInput.value;
+    const confirmPassword = elements.confirmPasswordInput.value;
+    if (newPassword !== confirmPassword) { showFormError(elements.passwordError, "새 비밀번호가 서로 일치하지 않습니다."); return; }
+    if (newPassword.length < 4) { showFormError(elements.passwordError, "새 비밀번호는 4자 이상이어야 합니다."); return; }
+    elements.passwordSubmitButton.disabled = true;
+    try {
+      await api("/auth/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) });
+      state.authenticated = true;
+      elements.passwordDialog.close();
+      render();
+      showToast("비밀번호를 변경했습니다.");
+    } catch (error) {
+      if (error?.status === 401 && error.message === "로그인이 필요합니다.") state.authenticated = false;
+      showFormError(elements.passwordError, error.message);
+      render();
+    } finally { elements.passwordSubmitButton.disabled = false; }
+  });
+
   elements.newCollectionButton.addEventListener("click", openCreateCollectionDialog);
   elements.collectionForm.querySelectorAll('input[name="collectionKind"]').forEach((radio) => radio.addEventListener("change", updateCollectionPlaceholder));
   elements.vocabularyToggle.addEventListener("click", () => toggleGroup("vocabulary"));
@@ -330,6 +428,7 @@ function bindEvents() {
 
   elements.collectionForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!requireLogin()) return;
     const name = elements.collectionNameInput.value.trim();
     if (!name) return;
     elements.collectionSubmitButton.disabled = true;
@@ -351,16 +450,15 @@ function bindEvents() {
       }
       elements.collectionDialog.close();
       render();
-    } catch (error) {
-      console.error(error);
-      showToast(error.message);
-    } finally { elements.collectionSubmitButton.disabled = false; }
+    } catch (error) { reportError(error); }
+    finally { elements.collectionSubmitButton.disabled = false; }
   });
 
   elements.manualTab.addEventListener("click", () => setAddMode("manual"));
   elements.csvTab.addEventListener("click", () => setAddMode("csv"));
   elements.manualEntryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!requireLogin()) return;
     const collection = getSelectedCollection();
     if (!collection) return;
     const payload = { primaryText: elements.primaryInput.value.trim(), meaning: elements.meaningInput.value.trim(), example: elements.exampleInput.value.trim() };
@@ -374,7 +472,7 @@ function bindEvents() {
       render();
       elements.primaryInput.focus();
       showToast("추가했습니다.");
-    } catch (error) { console.error(error); showToast(error.message); }
+    } catch (error) { reportError(error); }
     finally { submit.disabled = false; }
   });
 
@@ -383,6 +481,7 @@ function bindEvents() {
   ["dragleave", "drop"].forEach((type) => elements.fileDrop.addEventListener(type, (event) => { event.preventDefault(); elements.fileDrop.classList.remove("dragging"); }));
   elements.fileDrop.addEventListener("drop", (event) => handleCsvFile(event.dataTransfer.files[0]));
   elements.importCsvButton.addEventListener("click", async () => {
+    if (!requireLogin()) return;
     const collection = getSelectedCollection();
     if (!collection || !pendingCsvItems.length) return;
     elements.importCsvButton.disabled = true;
@@ -391,7 +490,7 @@ function bindEvents() {
       elements.addEntriesDialog.close();
       await loadData();
       showToast(`${data.imported.toLocaleString("ko-KR")}개를 가져왔습니다.`);
-    } catch (error) { console.error(error); showToast(error.message); elements.importCsvButton.disabled = false; }
+    } catch (error) { reportError(error); elements.importCsvButton.disabled = false; }
   });
 
   elements.entryTableBody.addEventListener("click", (event) => {
@@ -401,6 +500,7 @@ function bindEvents() {
 
   elements.editEntryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!requireLogin()) return;
     const collection = getSelectedCollection();
     const item = collection?.items.find((entry) => entry.id === editingEntryId);
     if (!item) return;
@@ -411,10 +511,11 @@ function bindEvents() {
       elements.editEntryDialog.close();
       render();
       showToast("수정했습니다.");
-    } catch (error) { console.error(error); showToast(error.message); }
+    } catch (error) { reportError(error); }
   });
 
   elements.deleteEntryButton.addEventListener("click", async () => {
+    if (!requireLogin()) return;
     const collection = getSelectedCollection();
     const item = collection?.items.find((entry) => entry.id === editingEntryId);
     if (!item || !confirm("이 항목을 삭제할까요?")) return;
@@ -424,7 +525,7 @@ function bindEvents() {
       elements.editEntryDialog.close();
       render();
       showToast("삭제했습니다.");
-    } catch (error) { console.error(error); showToast(error.message); }
+    } catch (error) { reportError(error); }
   });
 
   document.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => $("#" + button.dataset.closeDialog)?.close()));
