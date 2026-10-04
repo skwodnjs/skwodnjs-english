@@ -109,8 +109,8 @@ async function deleteItem(db, itemId) {
 export async function onRequest(context) {
   const { request, env, params } = context;
   if (!env.DB) return bad("Cloudflare D1 binding 'DB'가 설정되지 않았습니다.", 500);
-  const path = String(params.path || "").replace(/^\/+|\/+$/g, "");
-  const parts = path ? path.split("/") : [];
+  const parts = Array.isArray(params.path) ? params.path : String(params.path || "").split("/").filter(Boolean);
+  const path = parts.join("/");
   const method = request.method.toUpperCase();
   try {
     if (method === "GET" && path === "bootstrap") return json({ collections: await bootstrap(env.DB) });
