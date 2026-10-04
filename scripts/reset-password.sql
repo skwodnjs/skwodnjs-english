@@ -2,5 +2,11 @@
 -- After this script runs, the next API request recreates the default
 -- authentication setting and the admin password becomes 1234 again.
 
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token_hash TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
 DELETE FROM app_settings WHERE key = 'auth.password';
 DELETE FROM auth_sessions;
