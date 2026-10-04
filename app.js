@@ -12,6 +12,13 @@ const elements = {
   toast: $("#toast")
 };
 
+elements.table = elements.entryTableBody.closest("table");
+elements.exampleHeader = document.querySelector(".example-column");
+elements.exampleInputLabel = document.querySelector('label[for="exampleInput"]');
+elements.csvFallbackHint = document.querySelector(".csv-help > div:last-child");
+elements.editDialogDescription = document.querySelector("#editEntryDialog .modal-header p");
+elements.editExampleLabel = document.querySelector('label[for="editExampleInput"]');
+
 const COLLAPSE_KEY = "skwodnjs-english:sidebar-groups:v1";
 let state = { collections: [], selectedId: null, authenticated: false };
 let collectionDialogMode = "create";
@@ -20,6 +27,7 @@ let editingEntryId = null;
 let pendingCsvItems = [];
 let toastTimer = null;
 let collapsed = loadCollapsedState();
+let expandedSentenceIds = new Set();
 
 function loadCollapsedState() {
   try { return { vocabulary: false, sentence: false, ...JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}") }; }
@@ -36,6 +44,10 @@ function getSelectedCollection() {
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+}
+
+function escapeHtmlMultiline(value) {
+  return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
 function showToast(message) {
@@ -124,7 +136,9 @@ function renderMain() {
   elements.collectionTitle.textContent = collection.name;
   elements.collectionMeta.textContent = `${collection.items.length.toLocaleString("ko-KR")}개의 ${isSentence ? "문장" : "단어"}`;
   elements.primaryHeader.textContent = isSentence ? "문장" : "단어";
-  elements.searchInput.placeholder = isSentence ? "문장 검색" : "단어 검색";
+  elements.exampleHeader.hidden = isSentence;
+  elements.table.classList.toggle("sentence-table", isSentence);
+  elements.searchInput.placeholder = isSentence ? "문장, 뜻, 해설 검색" : "단어 검색";
   elements.searchInput.disabled = false;
   elements.addEntriesButton.hidden = !state.authenticated;
   elements.emptyTitle.textContent = `아직 ${isSentence ? "문장이" : "단어가"} 없습니다`;
@@ -138,17 +152,37 @@ function renderMain() {
 function renderEntries() {
   const collection = getSelectedCollection();
   if (!collection) return;
+  const isSentence = collection.kind === "sentence";
   const query = elements.searchInput.value.trim().toLocaleLowerCase();
-  const items = collection.items.filter((item) => !query || [item.primaryText, item.meaning, item.example].some((value) => String(value || "").toLocaleLowerCase().includes(query)));
+  const items = collection.items.filter((item) => {
+    const searchable = isSentence ? [item.primaryText, item.meaning, item.explanation] : [item.primaryText, item.meaning, item.example];
+    return !query || searchable.some((value) => String(value || "").toLocaleLowerCase().includes(query));
+  });
   const noItems = collection.items.length === 0;
   const tableScroll = elements.entryTableBody.closest(".table-scroll");
   elements.emptyState.hidden = !noItems;
   tableScroll.hidden = noItems;
   if (noItems) { elements.entryTableBody.innerHTML = ""; return; }
   if (!items.length) {
-    elements.entryTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#8a8a8a;padding:42px 16px;">검색 결과가 없습니다.</td></tr>`;
+    elements.entryTableBody.innerHTML = `<tr><td colspan="${isSentence ? 4 : 5}" style="text-align:center;color:#8a8a8a;padding:42px 16px;">검색 결과가 없습니다.</td></tr>`;
     return;
   }
+
+  if (isSentence) {
+    elements.entryTableBody.innerHTML = items.map((item) => {
+      const originalIndex = collection.items.findIndex((candidate) => candidate.id === item.id);
+      const expanded = expandedSentenceIds.has(item.id);
+      const explanation = item.explanation || "해설이 없습니다.";
+      return `<tr class="sentence-row" data-toggle-explanation="${item.id}" tabindex="0" role="button" aria-expanded="${expanded}" aria-label="${expanded ? "해설 닫기" : "해설 열기"}">
+        <td class="number-column">${originalIndex + 1}</td>
+        <td class="word-cell"><div class="sentence-primary"><span>${escapeHtml(item.primaryText)}</span><svg class="sentence-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></div></td>
+        <td>${escapeHtml(item.meaning)}</td>
+        <td class="row-actions-column">${state.authenticated ? `<button class="icon-button row-action-button" type="button" data-edit-entry="${item.id}" aria-label="수정" title="수정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.7 6.3 3 3M4 20l4.1-1 10.6-10.6a2.1 2.1 0 0 0-3-3L5.1 16 4 20Z"/></svg></button>` : ""}</td>
+      </tr>${expanded ? `<tr class="sentence-explanation-row"><td colspan="4"><div class="sentence-explanation"><div class="sentence-explanation-label">해설</div><div class="sentence-explanation-body">${escapeHtmlMultiline(explanation)}</div></div></td></tr>` : ""}`;
+    }).join("");
+    return;
+  }
+
   elements.entryTableBody.innerHTML = items.map((item) => {
     const originalIndex = collection.items.findIndex((candidate) => candidate.id === item.id);
     return `<tr>
@@ -255,8 +289,11 @@ function openAddEntriesDialog() {
   elements.addDialogDescription.textContent = `“${collection.name}”에 ${label}을 추가합니다.`;
   elements.primaryInputLabel.textContent = label;
   elements.primaryInput.placeholder = isSentence ? "I have been looking forward to it." : "accomplish";
-  elements.csvFormatHint.textContent = isSentence ? "열 형식: sentence, meaning, example" : "열 형식: word, meaning, example";
-  elements.csvHeaderHint.textContent = isSentence ? "sentence, meaning, example 또는 문장, 뜻, 예문 헤더를 인식합니다." : "word, meaning, example 또는 단어, 뜻, 예문 헤더를 인식합니다.";
+  elements.exampleInputLabel.textContent = isSentence ? "해설" : "예문";
+  elements.exampleInput.placeholder = isSentence ? "문법, 표현, 뉘앙스 등을 입력하세요" : "예문을 입력하세요";
+  elements.csvFormatHint.textContent = isSentence ? "열 형식: sentence, meaning, explanation" : "열 형식: word, meaning, example";
+  elements.csvHeaderHint.textContent = isSentence ? "sentence, meaning, explanation 또는 문장, 뜻, 해설 헤더를 인식합니다." : "word, meaning, example 또는 단어, 뜻, 예문 헤더를 인식합니다.";
+  elements.csvFallbackHint.textContent = isSentence ? "헤더가 없으면 1열=문장, 2열=뜻, 3열=해설로 가져옵니다." : "헤더가 없으면 1열=내용, 2열=뜻, 3열=예문으로 가져옵니다.";
   elements.addEntriesDialog.showModal();
   requestAnimationFrame(() => elements.primaryInput.focus());
 }
@@ -295,16 +332,24 @@ function normalizeCsvRows(rows, kind) {
   const header = rows[0].map(normalize);
   const primaryNames = kind === "sentence" ? ["sentence", "문장", "english", "영어"] : ["word", "단어", "english", "영어"];
   const meaningNames = ["meaning", "뜻", "definition", "의미"];
-  const exampleNames = ["example", "예문", "usage", "사용예"];
+  const detailNames = kind === "sentence"
+    ? ["explanation", "commentary", "note", "notes", "해설", "설명", "비고", "example", "예문"]
+    : ["example", "예문", "usage", "사용예"];
   const primaryIndex = header.findIndex((value) => primaryNames.includes(value));
   const meaningIndex = header.findIndex((value) => meaningNames.includes(value));
-  const exampleIndex = header.findIndex((value) => exampleNames.includes(value));
+  const detailIndex = header.findIndex((value) => detailNames.includes(value));
   const hasHeader = primaryIndex >= 0 && meaningIndex >= 0;
   const start = hasHeader ? 1 : 0;
   const pi = hasHeader ? primaryIndex : 0;
   const mi = hasHeader ? meaningIndex : 1;
-  const ei = hasHeader ? exampleIndex : 2;
-  return rows.slice(start).map((row) => ({ primaryText: (row[pi] || "").trim(), meaning: (row[mi] || "").trim(), example: ei >= 0 ? (row[ei] || "").trim() : "" })).filter((item) => item.primaryText && item.meaning);
+  const di = hasHeader ? detailIndex : 2;
+  return rows.slice(start).map((row) => {
+    const item = { primaryText: (row[pi] || "").trim(), meaning: (row[mi] || "").trim() };
+    const detail = di >= 0 ? (row[di] || "").trim() : "";
+    if (kind === "sentence") item.explanation = detail;
+    else item.example = detail;
+    return item;
+  }).filter((item) => item.primaryText && item.meaning);
 }
 
 async function handleCsvFile(file) {
@@ -333,10 +378,13 @@ function openEditEntryDialog(entryId) {
   editingEntryId = item.id;
   const isSentence = collection.kind === "sentence";
   elements.editDialogTitle.textContent = `${isSentence ? "문장" : "단어"} 수정`;
+  elements.editDialogDescription.textContent = isSentence ? "문장, 뜻, 해설을 수정할 수 있습니다." : "단어, 뜻, 예문을 수정할 수 있습니다.";
   elements.editPrimaryLabel.textContent = isSentence ? "문장" : "단어";
+  elements.editExampleLabel.textContent = isSentence ? "해설" : "예문";
+  elements.editExampleInput.placeholder = isSentence ? "문법, 표현, 뉘앙스 등을 입력하세요" : "예문을 입력하세요";
   elements.editPrimaryInput.value = item.primaryText;
   elements.editMeaningInput.value = item.meaning;
-  elements.editExampleInput.value = item.example || "";
+  elements.editExampleInput.value = isSentence ? (item.explanation || "") : (item.example || "");
   elements.editEntryDialog.showModal();
   requestAnimationFrame(() => elements.editPrimaryInput.focus());
 }
@@ -352,6 +400,12 @@ function toggleGroup(kind) {
   renderSidebar();
 }
 
+function toggleSentenceExplanation(entryId) {
+  if (expandedSentenceIds.has(entryId)) expandedSentenceIds.delete(entryId);
+  else expandedSentenceIds.add(entryId);
+  renderEntries();
+}
+
 function bindCollectionList(target) {
   target.addEventListener("click", (event) => {
     const select = event.target.closest("[data-select-collection]");
@@ -359,6 +413,7 @@ function bindCollectionList(target) {
     if (rename) { openRenameCollectionDialog(rename.dataset.renameCollection); return; }
     if (select) {
       state.selectedId = select.dataset.selectCollection;
+      expandedSentenceIds.clear();
       elements.searchInput.value = "";
       render();
       closeMobileSidebar();
@@ -438,6 +493,7 @@ function bindEvents() {
         const data = await api("/collections", { method: "POST", body: JSON.stringify({ kind, name }) });
         state.collections.push({ ...data.collection, items: data.collection.items || [] });
         state.selectedId = data.collection.id;
+        expandedSentenceIds.clear();
         collapsed[kind] = false;
         saveCollapsedState();
         showToast(`${kind === "sentence" ? "문장" : "단어장"}을 만들었습니다.`);
@@ -461,7 +517,10 @@ function bindEvents() {
     if (!requireLogin()) return;
     const collection = getSelectedCollection();
     if (!collection) return;
-    const payload = { primaryText: elements.primaryInput.value.trim(), meaning: elements.meaningInput.value.trim(), example: elements.exampleInput.value.trim() };
+    const detail = elements.exampleInput.value.trim();
+    const payload = { primaryText: elements.primaryInput.value.trim(), meaning: elements.meaningInput.value.trim() };
+    if (collection.kind === "sentence") payload.explanation = detail;
+    else payload.example = detail;
     if (!payload.primaryText || !payload.meaning) return;
     const submit = elements.manualEntryForm.querySelector('button[type="submit"]');
     submit.disabled = true;
@@ -494,8 +553,18 @@ function bindEvents() {
   });
 
   elements.entryTableBody.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-edit-entry]");
-    if (button) openEditEntryDialog(button.dataset.editEntry);
+    const editButton = event.target.closest("[data-edit-entry]");
+    if (editButton) { openEditEntryDialog(editButton.dataset.editEntry); return; }
+    const sentenceRow = event.target.closest("[data-toggle-explanation]");
+    if (sentenceRow) toggleSentenceExplanation(sentenceRow.dataset.toggleExplanation);
+  });
+
+  elements.entryTableBody.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const sentenceRow = event.target.closest("[data-toggle-explanation]");
+    if (!sentenceRow) return;
+    event.preventDefault();
+    toggleSentenceExplanation(sentenceRow.dataset.toggleExplanation);
   });
 
   elements.editEntryForm.addEventListener("submit", async (event) => {
@@ -504,7 +573,10 @@ function bindEvents() {
     const collection = getSelectedCollection();
     const item = collection?.items.find((entry) => entry.id === editingEntryId);
     if (!item) return;
-    const payload = { primaryText: elements.editPrimaryInput.value.trim(), meaning: elements.editMeaningInput.value.trim(), example: elements.editExampleInput.value.trim() };
+    const detail = elements.editExampleInput.value.trim();
+    const payload = { primaryText: elements.editPrimaryInput.value.trim(), meaning: elements.editMeaningInput.value.trim() };
+    if (collection.kind === "sentence") payload.explanation = detail;
+    else payload.example = detail;
     try {
       await api(`/items/${item.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       Object.assign(item, payload);
@@ -522,6 +594,7 @@ function bindEvents() {
     try {
       await api(`/items/${item.id}`, { method: "DELETE" });
       collection.items = collection.items.filter((entry) => entry.id !== item.id);
+      expandedSentenceIds.delete(item.id);
       elements.editEntryDialog.close();
       render();
       showToast("삭제했습니다.");
