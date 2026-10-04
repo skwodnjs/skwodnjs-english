@@ -4,7 +4,9 @@ const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const SESSION_COOKIE = "skwodnjs_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
-const DEFAULT_PASSWORD_CONFIG = { algorithm: "PBKDF2-SHA256", iterations: 120000, salt: "IOD0+oXcrSmAX6126ceNxQ==", hash: "1F95YxulX89X0w9b5NZ8QL7+L5k1LfG+BdbZTW4rfG0=" };
+const PBKDF2_ITERATIONS = 100000;
+const LEGACY_DEFAULT_PASSWORD_CONFIG = { algorithm: "PBKDF2-SHA256", iterations: 120000, salt: "IOD0+oXcrSmAX6126ceNxQ==", hash: "1F95YxulX89X0w9b5NZ8QL7+L5k1LfG+BdbZTW4rfG0=" };
+const DEFAULT_PASSWORD_CONFIG = { algorithm: "PBKDF2-SHA256", iterations: PBKDF2_ITERATIONS, salt: "IOD0+oXcrSmAX6126ceNxQ==", hash: "Ih9V9dqQHe6q0ZVVHCov76+Lu92Jm/+iiKniC+zuDF4=" };
 let authSchemaReady = null;
 
 function safeJson(value) {
@@ -17,11 +19,20 @@ async function bodyJson(request) {
 
 async function ensureAuthSchema(db) {
   if (!authSchemaReady) {
-    authSchemaReady = db.batch([
-      db.prepare("CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)"),
-      db.prepare("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)"),
-      db.prepare("INSERT OR IGNORE INTO app_settings (key, value_json, updated_at) VALUES ('auth.password', ?, ?)").bind(JSON.stringify(DEFAULT_PASSWORD_CONFIG), now())
-    ]).catch((error) => { authSchemaReady = null; throw error; });
+    authSchemaReady = (async () => {
+      await db.batch([
+        db.prepare("CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)"),
+        db.prepare("INSERT OR IGNORE INTO app_settings (key, value_json, updated_at) VALUES ('auth.password', ?, ?)").bind(JSON.stringify(DEFAULT_PASSWORD_CONFIG), now())
+      ]);
+      const row = await db.prepare("SELECT value_json FROM app_settings WHERE key = 'auth.password'").first();
+      const config = safeJson(row?.value_json);
+      if (Number(config.iterations) > PBKDF2_ITERATIONS) {
+        const isLegacyDefault = Number(config.iterations) === LEGACY_DEFAULT_PASSWORD_CONFIG.iterations && config.salt === LEGACY_DEFAULT_PASSWORD_CONFIG.salt && config.hash === LEGACY_DEFAULT_PASSWORD_CONFIG.hash;
+        if (!isLegacyDefault) throw new Error(`저장된 PBKDF2 반복 횟수 ${config.iterations}회는 Cloudflare Workers 제한을 초과합니다.`);
+        await db.prepare("UPDATE app_settings SET value_json = ?, updated_at = ? WHERE key = 'auth.password'").bind(JSON.stringify(DEFAULT_PASSWORD_CONFIG), now()).run();
+      }
+    })().catch((error) => { authSchemaReady = null; throw error; });
   }
   return authSchemaReady;
 }
@@ -52,8 +63,9 @@ async function sha256Hex(value) {
 }
 
 async function derivePasswordHash(password, salt, iterations) {
+  const count = Math.min(Number(iterations) || PBKDF2_ITERATIONS, PBKDF2_ITERATIONS);
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: count }, key, 256);
   return new Uint8Array(bits);
 }
 
@@ -69,6 +81,7 @@ async function getPasswordConfig(db) {
   if (!row) throw new Error("인증 설정이 없습니다. 최신 D1 migration을 적용하세요.");
   const config = safeJson(row.value_json);
   if (!config.salt || !config.hash || !config.iterations) throw new Error("인증 설정이 올바르지 않습니다.");
+  if (Number(config.iterations) > PBKDF2_ITERATIONS) throw new Error("저장된 인증 설정의 PBKDF2 반복 횟수가 Cloudflare Workers 제한을 초과합니다.");
   return config;
 }
 
@@ -80,9 +93,8 @@ async function verifyPassword(db, password) {
 
 async function makePasswordConfig(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iterations = 120000;
-  const hash = await derivePasswordHash(password, salt, iterations);
-  return { algorithm: "PBKDF2-SHA256", iterations, salt: bytesToBase64(salt), hash: bytesToBase64(hash) };
+  const hash = await derivePasswordHash(password, salt, PBKDF2_ITERATIONS);
+  return { algorithm: "PBKDF2-SHA256", iterations: PBKDF2_ITERATIONS, salt: bytesToBase64(salt), hash: bytesToBase64(hash) };
 }
 
 function readCookie(request, name) {
