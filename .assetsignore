@@ -1,0 +1,8 @@
+worker.js
+wrangler.jsonc
+functions/**
+migrations/**
+README.md
+.git/**
+.github/**
+_routes.json
