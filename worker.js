@@ -175,7 +175,20 @@ async function bootstrap(db) {
   for (const row of itemsResult.results || []) {
     const collection = map.get(row.collection_id);
     if (!collection) continue;
-    collection.items.push({ id: row.id, type: row.item_type, primaryText: row.primary_text, meaning: row.meaning_text, example: row.example_text, notes: row.notes_text, sortOrder: row.sort_order, metadata: safeJson(row.metadata_json), createdAt: row.created_at, updatedAt: row.updated_at });
+    const isSentence = row.item_type === "sentence";
+    collection.items.push({
+      id: row.id,
+      type: row.item_type,
+      primaryText: row.primary_text,
+      meaning: row.meaning_text,
+      example: isSentence ? "" : row.example_text,
+      explanation: isSentence ? (row.notes_text || row.example_text || "") : "",
+      notes: row.notes_text,
+      sortOrder: row.sort_order,
+      metadata: safeJson(row.metadata_json),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    });
   }
   return [...map.values()];
 }
@@ -213,14 +226,16 @@ async function createItem(db, request, collectionId) {
   const body = await bodyJson(request);
   const primaryText = String(body.primaryText || "").trim();
   const meaning = String(body.meaning || "").trim();
-  const example = String(body.example || "").trim();
+  const isSentence = collection.kind === "sentence";
+  const example = isSentence ? "" : String(body.example || "").trim();
+  const explanation = isSentence ? String(body.explanation ?? body.example ?? "").trim() : "";
   if (!primaryText || !meaning) return bad("내용과 뜻은 필수입니다.");
   const maxRow = await db.prepare("SELECT COALESCE(MAX(sort_order), -1) AS max_sort FROM study_items WHERE collection_id = ?").bind(collectionId).first();
   const itemId = id();
   const sortOrder = Number(maxRow?.max_sort ?? -1) + 1;
   const ts = now();
-  await db.prepare("INSERT INTO study_items (id, collection_id, item_type, primary_text, meaning_text, example_text, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(itemId, collectionId, collection.kind, primaryText, meaning, example, sortOrder, ts, ts).run();
-  return json({ item: { id: itemId, type: collection.kind, primaryText, meaning, example, sortOrder } }, 201);
+  await db.prepare("INSERT INTO study_items (id, collection_id, item_type, primary_text, meaning_text, example_text, notes_text, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(itemId, collectionId, collection.kind, primaryText, meaning, example, explanation, sortOrder, ts, ts).run();
+  return json({ item: { id: itemId, type: collection.kind, primaryText, meaning, example, explanation, notes: explanation, sortOrder } }, 201);
 }
 
 async function bulkCreateItems(db, request, collectionId) {
@@ -234,12 +249,14 @@ async function bulkCreateItems(db, request, collectionId) {
   let order = Number(maxRow?.max_sort ?? -1) + 1;
   const ts = now();
   const statements = [];
+  const isSentence = collection.kind === "sentence";
   for (const source of items) {
     const primaryText = String(source.primaryText || "").trim();
     const meaning = String(source.meaning || "").trim();
-    const example = String(source.example || "").trim();
+    const example = isSentence ? "" : String(source.example || "").trim();
+    const explanation = isSentence ? String(source.explanation ?? source.example ?? "").trim() : "";
     if (!primaryText || !meaning) continue;
-    statements.push(db.prepare("INSERT INTO study_items (id, collection_id, item_type, primary_text, meaning_text, example_text, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id(), collectionId, collection.kind, primaryText, meaning, example, order++, ts, ts));
+    statements.push(db.prepare("INSERT INTO study_items (id, collection_id, item_type, primary_text, meaning_text, example_text, notes_text, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id(), collectionId, collection.kind, primaryText, meaning, example, explanation, order++, ts, ts));
   }
   if (!statements.length) return bad("유효한 항목이 없습니다.");
   for (let i = 0; i < statements.length; i += 100) await db.batch(statements.slice(i, i + 100));
@@ -247,12 +264,20 @@ async function bulkCreateItems(db, request, collectionId) {
 }
 
 async function updateItem(db, request, itemId) {
+  const existing = await db.prepare("SELECT item_type FROM study_items WHERE id = ?").bind(itemId).first();
+  if (!existing) return bad("항목을 찾을 수 없습니다.", 404);
   const body = await bodyJson(request);
   const primaryText = String(body.primaryText || "").trim();
   const meaning = String(body.meaning || "").trim();
-  const example = String(body.example || "").trim();
   if (!primaryText || !meaning) return bad("내용과 뜻은 필수입니다.");
-  const result = await db.prepare("UPDATE study_items SET primary_text = ?, meaning_text = ?, example_text = ?, updated_at = ? WHERE id = ?").bind(primaryText, meaning, example, now(), itemId).run();
+  let result;
+  if (existing.item_type === "sentence") {
+    const explanation = String(body.explanation ?? body.example ?? "").trim();
+    result = await db.prepare("UPDATE study_items SET primary_text = ?, meaning_text = ?, example_text = '', notes_text = ?, updated_at = ? WHERE id = ?").bind(primaryText, meaning, explanation, now(), itemId).run();
+  } else {
+    const example = String(body.example || "").trim();
+    result = await db.prepare("UPDATE study_items SET primary_text = ?, meaning_text = ?, example_text = ?, updated_at = ? WHERE id = ?").bind(primaryText, meaning, example, now(), itemId).run();
+  }
   if (!result.meta.changes) return bad("항목을 찾을 수 없습니다.", 404);
   return json({ ok: true });
 }
