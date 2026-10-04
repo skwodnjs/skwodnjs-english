@@ -8,6 +8,6 @@ CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires
 
 INSERT OR IGNORE INTO app_settings (key, value_json, updated_at) VALUES (
   'auth.password',
-  '{"algorithm":"PBKDF2-SHA256","iterations":120000,"salt":"IOD0+oXcrSmAX6126ceNxQ==","hash":"1F95YxulX89X0w9b5NZ8QL7+L5k1LfG+BdbZTW4rfG0="}',
+  '{"algorithm":"PBKDF2-SHA256","iterations":100000,"salt":"IOD0+oXcrSmAX6126ceNxQ==","hash":"Ih9V9dqQHe6q0ZVVHCov76+Lu92Jm/+iiKniC+zuDF4="}',
   CURRENT_TIMESTAMP
 );
