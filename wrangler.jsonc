@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "skwodnjs-english",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-05",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api", "/api/*"]
+  }
+}
