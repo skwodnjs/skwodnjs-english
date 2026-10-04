@@ -1,0 +1,106 @@
+#themeToggleButton {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+#themeToggleButton:hover { background: var(--sidebar-hover); }
+#themeToggleButton svg { width: 19px; height: 19px; }
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171717;
+  --sidebar: #202020;
+  --sidebar-hover: #2b2b2b;
+  --border: #353535;
+  --text: #ececec;
+  --muted: #b4b4b4;
+  --subtle: #858585;
+  --accent: #10a37f;
+  --accent-hover: #18b892;
+  --danger: #f07171;
+  --shadow: 0 18px 48px rgba(0,0,0,.42);
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .main-content { background: var(--bg); }
+html[data-theme="dark"] .sidebar { border-right-color: #2c2c2c; }
+html[data-theme="dark"] .sidebar-footer { border-top-color: #303030; }
+html[data-theme="dark"] .sidebar-section-toggle:hover { background: rgba(255,255,255,.045); }
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .secondary-button,
+html[data-theme="dark"] .ghost-button,
+html[data-theme="dark"] .table-card,
+html[data-theme="dark"] .modal-card,
+html[data-theme="dark"] .form-field input,
+html[data-theme="dark"] .form-field textarea,
+html[data-theme="dark"] .practice-answer-input,
+html[data-theme="dark"] .practice-count-row input[type="number"],
+html[data-theme="dark"] .check-option,
+html[data-theme="dark"] .practice-type-content,
+html[data-theme="dark"] .single-practice-card {
+  background: #202020;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-theme="dark"] .search-box input { color: var(--text); }
+html[data-theme="dark"] .secondary-button:hover,
+html[data-theme="dark"] .ghost-button:hover,
+html[data-theme="dark"] .icon-button:hover,
+html[data-theme="dark"] .practice-type-card:hover .practice-type-content {
+  background: #2a2a2a;
+}
+
+html[data-theme="dark"] th { background: #232323; }
+html[data-theme="dark"] td { border-bottom-color: #303030; }
+html[data-theme="dark"] tbody tr:hover { background: #1d1d1d; }
+html[data-theme="dark"] .word-cell { color: #f2f2f2; }
+html[data-theme="dark"] .empty-icon,
+html[data-theme="dark"] .upload-icon { background: #292929; }
+
+html[data-theme="dark"] .kind-option span { border-color: #3b3b3b; }
+html[data-theme="dark"] .kind-option input:checked + span {
+  border-color: var(--accent);
+  background: #18372f;
+  color: #6fe2c2;
+}
+
+html[data-theme="dark"] .modal-error {
+  background: #3a2020;
+  color: #ff9b9b;
+}
+
+html[data-theme="dark"] .file-drop { border-color: #484848; }
+html[data-theme="dark"] .file-drop:hover,
+html[data-theme="dark"] .file-drop.dragging { background: #19352e; }
+html[data-theme="dark"] .csv-result { background: #18342d; color: #8edcc5; }
+
+html[data-theme="dark"] .sentence-row:focus td,
+html[data-theme="dark"] .sentence-row[aria-expanded="true"] td,
+html[data-theme="dark"] .sentence-explanation-row td { background: #1f1f1f; }
+html[data-theme="dark"] .sentence-explanation-row > td { border-bottom-color: #303030; }
+
+html[data-theme="dark"] .practice-table-options,
+html[data-theme="dark"] .practice-result-status { background: #202020; border-color: var(--border); }
+html[data-theme="dark"] .practice-type-card > input:checked + .practice-type-content {
+  border-color: var(--accent);
+  background: #18372f;
+}
+html[data-theme="dark"] .practice-count-row input[type="number"]:disabled { background: #292929; }
+html[data-theme="dark"] .practice-progress-track { background: #343434; }
+html[data-theme="dark"] .practice-result-status.matched,
+html[data-theme="dark"] .practice-summary-icon { background: #18372f; color: #71dfc1; }
+html[data-theme="dark"] .correct-answer > strong,
+html[data-theme="dark"] .table-answer-result.matched > div:first-child strong,
+html[data-theme="dark"] .table-correct-answer strong { color: #71dfc1; }
+
+@media (max-width: 620px) {
+  #themeToggleButton { width: 40px; height: 40px; flex-basis: 40px; }
+  html[data-theme="dark"] .table-scroll > table:not(.sentence-table) #entryTableBody > tr,
+  html[data-theme="dark"] .sentence-table #entryTableBody > .sentence-row { background: #202020; border-bottom-color: #303030; }
+  html[data-theme="dark"] .sentence-table #entryTableBody > .sentence-explanation-row { background: #1f1f1f; }
+}
