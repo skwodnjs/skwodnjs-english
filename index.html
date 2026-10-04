@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f7f7f8">
   <title>English Study</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="practice.css">
 </head>
 <body>
   <div class="app-shell">
@@ -54,6 +55,7 @@
           <div><h1 id="collectionTitle">불러오는 중</h1><p id="collectionMeta">데이터를 불러오고 있습니다.</p></div>
           <div class="heading-actions">
             <label class="search-box"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="searchInput" type="search" placeholder="검색" autocomplete="off"></label>
+            <button class="secondary-button practice-button" id="practiceButton" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11.5 11 13l4-5M5 4h14v16H5z"/></svg><span>연습하기</span></button>
             <button class="primary-button" id="addEntriesButton" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>추가하기</span></button>
           </div>
         </div>
@@ -103,6 +105,80 @@
     </form>
   </dialog>
 
+  <dialog class="modal" id="practiceDialog">
+    <div class="modal-card practice-modal">
+      <div class="modal-header">
+        <div><h2 id="practiceDialogTitle">단어 연습</h2><p id="practiceDialogDescription">연습 방식을 선택하세요.</p></div>
+        <button class="icon-button" type="button" data-close-dialog="practiceDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+
+      <section id="practiceSetupPanel">
+        <div class="practice-type-grid">
+          <label class="practice-type-card">
+            <input type="radio" name="practiceType" value="single" checked>
+            <span class="practice-type-content"><strong>하나씩 풀기</strong><small>단어를 하나씩 보고 뜻을 입력한 뒤 정답과 비교합니다.</small></span>
+          </label>
+          <label class="practice-type-card">
+            <input type="radio" name="practiceType" value="table">
+            <span class="practice-type-content"><strong>표로 풀기</strong><small>여러 단어를 한 번에 풀고 제출한 뒤 전체 정답을 확인합니다.</small></span>
+          </label>
+        </div>
+
+        <div class="practice-table-options" id="practiceTableOptions" hidden>
+          <div class="field-label">문제 수</div>
+          <div class="practice-count-row">
+            <input id="practiceCountInput" type="number" min="1" inputmode="numeric" aria-label="문제 수">
+            <label class="check-option"><input id="practiceAllCheckbox" type="checkbox"><span>전체</span></label>
+          </div>
+          <p class="practice-hint" id="practiceCountHint"></p>
+          <p class="practice-hint">각 행에서 영어 단어 또는 뜻 중 하나가 무작위로 빈칸이 됩니다.</p>
+        </div>
+
+        <div class="modal-error" id="practiceSetupError" hidden></div>
+        <div class="modal-actions"><button class="ghost-button cancel-button" type="button" data-close-dialog="practiceDialog">취소</button><button class="primary-button" id="startPracticeButton" type="button">시작하기</button></div>
+      </section>
+
+      <section id="singlePracticePanel" hidden>
+        <div class="practice-progress-row"><span id="singlePracticeProgress"></span><span id="singlePracticeScore"></span></div>
+        <div class="practice-progress-track"><span id="singlePracticeProgressBar"></span></div>
+        <div class="single-practice-card">
+          <div class="single-practice-label">단어</div>
+          <div class="single-practice-word" id="singlePracticeWord"></div>
+          <form id="singlePracticeForm">
+            <div class="form-field"><label for="singlePracticeAnswer">뜻</label><input id="singlePracticeAnswer" type="text" autocomplete="off" placeholder="뜻을 입력하세요"></div>
+            <button class="primary-button practice-submit-wide" id="singlePracticeSubmitButton" type="submit">제출</button>
+          </form>
+          <div class="single-practice-result" id="singlePracticeResult" hidden>
+            <div class="answer-compare-row"><span>내 답</span><strong id="singlePracticeUserAnswer"></strong></div>
+            <div class="answer-compare-row correct-answer"><span>정답</span><strong id="singlePracticeCorrectAnswer"></strong></div>
+            <div class="practice-result-status" id="singlePracticeResultStatus"></div>
+            <button class="primary-button practice-submit-wide" id="singlePracticeNextButton" type="button">다음</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="tablePracticePanel" hidden>
+        <div class="practice-progress-row"><span id="tablePracticeMeta"></span><span id="tablePracticeScore"></span></div>
+        <div class="practice-test-scroll">
+          <table class="practice-test-table">
+            <thead><tr><th class="number-column">#</th><th>영어 단어</th><th>뜻</th></tr></thead>
+            <tbody id="tablePracticeBody"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions practice-table-actions"><button class="ghost-button" id="practiceBackButton" type="button">설정으로</button><button class="primary-button" id="tablePracticeSubmitButton" type="button">전체 제출</button></div>
+      </section>
+
+      <section id="practiceSummaryPanel" hidden>
+        <div class="practice-summary">
+          <div class="practice-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12.5 10.5 16 17 8"/></svg></div>
+          <h3>연습 완료</h3>
+          <p id="practiceSummaryText"></p>
+          <div class="practice-summary-actions"><button class="ghost-button" id="practiceSetupAgainButton" type="button">다른 방식 선택</button><button class="primary-button" id="practiceRetryButton" type="button">다시 풀기</button></div>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
   <dialog class="modal" id="loginDialog">
     <form class="modal-card auth-modal" id="loginForm" method="dialog">
       <div class="modal-header"><div><h2>로그인</h2><p>수정 권한을 사용하려면 비밀번호를 입력하세요.</p></div><button class="icon-button" type="button" data-close-dialog="loginDialog" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -125,5 +201,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
+  <script src="practice.js"></script>
 </body>
 </html>
