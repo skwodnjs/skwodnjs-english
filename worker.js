@@ -4,6 +4,8 @@ const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const SESSION_COOKIE = "skwodnjs_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+const DEFAULT_PASSWORD_CONFIG = { algorithm: "PBKDF2-SHA256", iterations: 120000, salt: "IOD0+oXcrSmAX6126ceNxQ==", hash: "1F95YxulX89X0w9b5NZ8QL7+L5k1LfG+BdbZTW4rfG0=" };
+let authSchemaReady = null;
 
 function safeJson(value) {
   try { return JSON.parse(value || "{}"); } catch { return {}; }
@@ -11,6 +13,17 @@ function safeJson(value) {
 
 async function bodyJson(request) {
   try { return await request.json(); } catch { throw new Error("JSON 요청 본문이 필요합니다."); }
+}
+
+async function ensureAuthSchema(db) {
+  if (!authSchemaReady) {
+    authSchemaReady = db.batch([
+      db.prepare("CREATE TABLE IF NOT EXISTS auth_sessions (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)"),
+      db.prepare("CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)"),
+      db.prepare("INSERT OR IGNORE INTO app_settings (key, value_json, updated_at) VALUES ('auth.password', ?, ?)").bind(JSON.stringify(DEFAULT_PASSWORD_CONFIG), now())
+    ]).catch((error) => { authSchemaReady = null; throw error; });
+  }
+  return authSchemaReady;
 }
 
 function bytesToBase64(bytes) {
@@ -240,6 +253,7 @@ async function deleteItem(db, itemId) {
 
 async function handleApi(request, env) {
   if (!env.DB) return bad("Cloudflare D1 binding 'DB'가 설정되지 않았습니다.", 500);
+  await ensureAuthSchema(env.DB);
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/?|\/+$/g, "");
   const parts = path ? path.split("/") : [];
