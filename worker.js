@@ -1,7 +1,9 @@
-const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
+const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...headers } });
 const bad = (message, status = 400) => json({ error: message }, status);
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
+const SESSION_COOKIE = "skwodnjs_session";
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 function safeJson(value) {
   try { return JSON.parse(value || "{}"); } catch { return {}; }
@@ -9,6 +11,136 @@ function safeJson(value) {
 
 async function bodyJson(request) {
   try { return await request.json(); } catch { throw new Error("JSON 요청 본문이 필요합니다."); }
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function bytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function randomToken(length = 32) {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function derivePasswordHash(password, salt, iterations) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  return new Uint8Array(bits);
+}
+
+function constantTimeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i++) diff |= left[i] ^ right[i];
+  return diff === 0;
+}
+
+async function getPasswordConfig(db) {
+  const row = await db.prepare("SELECT value_json FROM app_settings WHERE key = 'auth.password'").first();
+  if (!row) throw new Error("인증 설정이 없습니다. 최신 D1 migration을 적용하세요.");
+  const config = safeJson(row.value_json);
+  if (!config.salt || !config.hash || !config.iterations) throw new Error("인증 설정이 올바르지 않습니다.");
+  return config;
+}
+
+async function verifyPassword(db, password) {
+  const config = await getPasswordConfig(db);
+  const actual = await derivePasswordHash(String(password || ""), base64ToBytes(config.salt), Number(config.iterations));
+  return constantTimeEqual(actual, base64ToBytes(config.hash));
+}
+
+async function makePasswordConfig(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iterations = 120000;
+  const hash = await derivePasswordHash(password, salt, iterations);
+  return { algorithm: "PBKDF2-SHA256", iterations, salt: bytesToBase64(salt), hash: bytesToBase64(hash) };
+}
+
+function readCookie(request, name) {
+  const cookie = request.headers.get("cookie") || "";
+  for (const part of cookie.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return value.join("=");
+  }
+  return "";
+}
+
+function sessionCookie(request, token, maxAge = SESSION_MAX_AGE) {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+async function createSession(db, request) {
+  const token = randomToken();
+  const tokenHash = await sha256Hex(token);
+  const createdAt = now();
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000).toISOString();
+  await db.prepare("INSERT INTO auth_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)").bind(tokenHash, createdAt, expiresAt).run();
+  return sessionCookie(request, token);
+}
+
+async function isAuthenticated(db, request) {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (!token) return false;
+  const tokenHash = await sha256Hex(token);
+  const row = await db.prepare("SELECT expires_at FROM auth_sessions WHERE token_hash = ?").bind(tokenHash).first();
+  if (!row) return false;
+  if (String(row.expires_at) <= now()) {
+    await db.prepare("DELETE FROM auth_sessions WHERE token_hash = ?").bind(tokenHash).run();
+    return false;
+  }
+  return true;
+}
+
+async function login(db, request) {
+  const body = await bodyJson(request);
+  const password = String(body.password || "");
+  if (!await verifyPassword(db, password)) return bad("비밀번호가 올바르지 않습니다.", 401);
+  await db.prepare("DELETE FROM auth_sessions WHERE expires_at <= ?").bind(now()).run();
+  const cookie = await createSession(db, request);
+  return json({ authenticated: true }, 200, { "set-cookie": cookie });
+}
+
+async function logout(db, request) {
+  const token = readCookie(request, SESSION_COOKIE);
+  if (token) {
+    const tokenHash = await sha256Hex(token);
+    await db.prepare("DELETE FROM auth_sessions WHERE token_hash = ?").bind(tokenHash).run();
+  }
+  return json({ authenticated: false }, 200, { "set-cookie": sessionCookie(request, "", 0) });
+}
+
+async function changePassword(db, request) {
+  if (!await isAuthenticated(db, request)) return bad("로그인이 필요합니다.", 401);
+  const body = await bodyJson(request);
+  const currentPassword = String(body.currentPassword || "");
+  const newPassword = String(body.newPassword || "");
+  if (!await verifyPassword(db, currentPassword)) return bad("현재 비밀번호가 올바르지 않습니다.", 401);
+  if (newPassword.length < 4) return bad("새 비밀번호는 4자 이상이어야 합니다.");
+  const config = await makePasswordConfig(newPassword);
+  const ts = now();
+  await db.batch([
+    db.prepare("UPDATE app_settings SET value_json = ?, updated_at = ? WHERE key = 'auth.password'").bind(JSON.stringify(config), ts),
+    db.prepare("DELETE FROM auth_sessions")
+  ]);
+  const cookie = await createSession(db, request);
+  return json({ authenticated: true }, 200, { "set-cookie": cookie });
 }
 
 async function bootstrap(db) {
@@ -112,7 +244,16 @@ async function handleApi(request, env) {
   const path = url.pathname.replace(/^\/api\/?|\/+$/g, "");
   const parts = path ? path.split("/") : [];
   const method = request.method.toUpperCase();
+
   if (method === "GET" && path === "bootstrap") return json({ collections: await bootstrap(env.DB) });
+  if (method === "GET" && path === "auth/status") return json({ authenticated: await isAuthenticated(env.DB, request) });
+  if (method === "POST" && path === "auth/login") return await login(env.DB, request);
+  if (method === "POST" && path === "auth/logout") return await logout(env.DB, request);
+  if (method === "POST" && path === "auth/password") return await changePassword(env.DB, request);
+
+  const isMutation = ["POST", "PATCH", "PUT", "DELETE"].includes(method);
+  if (isMutation && !await isAuthenticated(env.DB, request)) return bad("로그인이 필요합니다.", 401);
+
   if (method === "POST" && path === "collections") return await createCollection(env.DB, request);
   if (parts[0] === "collections" && parts[1] && parts.length === 2 && method === "PATCH") return await updateCollection(env.DB, request, parts[1]);
   if (parts[0] === "collections" && parts[1] && parts[2] === "items" && parts.length === 3 && method === "POST") return await createItem(env.DB, request, parts[1]);
