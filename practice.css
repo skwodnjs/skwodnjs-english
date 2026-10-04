@@ -305,21 +305,238 @@
   gap: 8px;
 }
 
+/* Sentence rows stay clickable, but no expand/collapse arrow is shown. */
+.sentence-chevron { display: none !important; }
+.sentence-primary { justify-content: flex-start; }
+
 @media (max-width: 620px) {
+  /* Main page */
+  .topbar { height: 50px; }
+  .content-wrap { width: calc(100% - 20px); margin: 10px auto 36px; }
+  .page-heading { gap: 14px; margin-bottom: 14px; }
+  h1 { font-size: 27px; }
+  #collectionMeta { margin-top: 6px; }
+  .heading-actions { gap: 8px; }
   .heading-actions > .practice-button { width: 100%; }
+  .search-box,
+  .heading-actions > .primary-button,
+  .heading-actions > .secondary-button { min-height: 44px; }
 
-  .practice-type-grid { grid-template-columns: 1fr; }
-  .practice-type-content { min-height: 92px; }
-  .practice-count-row { align-items: stretch; }
+  /* Render the normal vocabulary/sentence table as mobile cards instead of a 700px-wide table. */
+  .table-card { border-radius: 12px; }
+  .table-scroll { overflow-x: visible; }
+  .table-scroll > table { min-width: 0; width: 100%; table-layout: auto; }
+  .table-scroll > table > thead { display: none; }
+  #entryTableBody { display: block; width: 100%; }
 
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    width: 100%;
+    padding: 14px 12px;
+    border-bottom: 1px solid #efefef;
+    background: #fff;
+  }
+
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr:last-child { border-bottom: 0; }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td {
+    display: block;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > .number-column { display: none; }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(2) {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0 4px 9px 0;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(3),
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(4) {
+    grid-column: 1 / -1;
+    padding-top: 8px;
+    color: var(--muted);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(3)::before,
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(4)::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--subtle);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(3)::before { content: "뜻"; }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td:nth-child(4)::before { content: "예문"; }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > .row-actions-column {
+    grid-column: 2;
+    grid-row: 1;
+    width: 38px;
+    justify-self: end;
+  }
+  .table-scroll > table:not(.sentence-table) #entryTableBody > tr > td[colspan] {
+    grid-column: 1 / -1;
+    padding: 28px 8px !important;
+  }
+
+  /* Sentence cards */
+  .sentence-table { min-width: 0 !important; }
+  .sentence-table #entryTableBody > .sentence-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    width: 100%;
+    padding: 14px 12px;
+    border-bottom: 1px solid #efefef;
+    background: #fff;
+  }
+  .sentence-table #entryTableBody > .sentence-row > td {
+    display: block;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .sentence-table #entryTableBody > .sentence-row > .number-column { display: none; }
+  .sentence-table #entryTableBody > .sentence-row > td:nth-child(2) {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0 4px 8px 0;
+    font-size: 15px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .sentence-table #entryTableBody > .sentence-row > td:nth-child(3) {
+    grid-column: 1 / -1;
+    padding-top: 7px;
+    color: var(--muted);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .sentence-table #entryTableBody > .sentence-row > td:nth-child(3)::before {
+    content: "뜻";
+    display: block;
+    margin-bottom: 2px;
+    color: var(--subtle);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .sentence-table #entryTableBody > .sentence-row > .row-actions-column {
+    grid-column: 2;
+    grid-row: 1;
+    width: 38px;
+    justify-self: end;
+  }
+  .sentence-table #entryTableBody > .sentence-explanation-row {
+    display: block;
+    width: 100%;
+    background: #fafafa;
+  }
+  .sentence-table #entryTableBody > .sentence-explanation-row > td {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: 0;
+    border-bottom: 1px solid #efefef;
+  }
+  .sentence-explanation { padding: 4px 14px 16px !important; }
+  .sentence-explanation-body { overflow-wrap: anywhere; }
+  .sentence-table #entryTableBody > tr > td[colspan] {
+    display: block;
+    width: 100%;
+    padding: 28px 12px !important;
+  }
+
+  /* All dialogs fit inside the dynamic mobile viewport. */
+  .modal-card,
+  .practice-modal {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    padding: 16px;
+    border-radius: 14px;
+  }
+  .modal-header { gap: 10px; margin-bottom: 16px; }
+  .modal-header h2 { font-size: 19px; }
+  .modal-header > .icon-button { flex: 0 0 36px; }
+  .form-field input,
+  .form-field textarea,
+  .practice-answer-input,
+  .practice-count-row input[type="number"] { font-size: 16px; }
+
+  /* Practice setup */
+  .practice-type-grid { grid-template-columns: 1fr; gap: 8px; }
+  .practice-type-content { min-height: 82px; padding: 14px; }
+  .practice-table-options { margin-top: 12px; padding: 13px; }
+  .practice-count-row { align-items: stretch; flex-wrap: wrap; }
   .practice-count-row input[type="number"] {
-    flex: 1;
+    flex: 1 1 140px;
     min-width: 0;
     width: auto;
   }
+  .check-option { flex: 0 0 auto; min-height: 44px; }
 
-  .single-practice-card { padding: 20px; }
-  .practice-test-scroll { max-height: 55vh; }
+  /* One-by-one practice */
+  .single-practice-card { padding: 18px 16px; }
+  .single-practice-word { margin: 8px 0 22px; font-size: clamp(28px, 10vw, 38px); }
+  .answer-compare-row { grid-template-columns: 58px minmax(0, 1fr); }
+  .practice-progress-row { gap: 8px; }
+
+  /* Table practice: keep all three columns visible without horizontal overflow. */
+  .practice-test-scroll {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 230px);
+    overflow: auto;
+  }
+  .practice-test-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+  .practice-test-table .number-column {
+    width: 34px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .practice-test-table th,
+  .practice-test-table td {
+    height: auto;
+    padding: 10px 7px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .practice-test-table th:nth-child(2),
+  .practice-test-table th:nth-child(3) { width: calc((100% - 34px) / 2); }
+  .practice-answer-input { padding: 9px 7px; }
+  .table-answer-result > div {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .practice-table-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .practice-table-actions > button { flex: 1 1 120px; }
+
+  .practice-summary { padding: 20px 4px 6px; }
   .practice-summary-actions { flex-direction: column; }
   .practice-summary-actions > button { width: 100%; }
+
+  .toast {
+    width: calc(100vw - 24px);
+    max-width: 420px;
+    bottom: 16px;
+    text-align: center;
+  }
 }
